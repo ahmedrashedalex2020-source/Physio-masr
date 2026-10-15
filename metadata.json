@@ -1,0 +1,6 @@
+{
+  "name": "نظام إدارة جلسات وعملاء العلاج الطبيعي والتأهيل",
+  "description": "نظام احترافي لإدارة سجلات العملاء وجلسات العلاج الطبيعي والتأهيل الحركي والمدفوعات والحالات بدقة متناهية.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
