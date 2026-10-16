@@ -9,6 +9,7 @@ import { DeleteConfirmModal } from './components/DeleteConfirmModal';
 import { ExportModal } from './components/ExportModal';
 import { InstallPromptModal } from './components/InstallPromptModal';
 import { LoginScreen } from './components/LoginScreen';
+import { ClinicGameView } from './components/ClinicGameView';
 import { StorageService, normalizeArabic } from './services/storage';
 import { AuthService, User } from './services/auth';
 import { SessionRecord, ClientProfile, FilterOptions } from './types';
@@ -18,7 +19,7 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(() => AuthService.getCurrentUser());
   const [sessions, setSessions] = useState<SessionRecord[]>([]);
   const [clients, setClients] = useState<ClientProfile[]>([]);
-  const [activeTab, setActiveTab] = useState<'sessions' | 'clients' | 'financials'>('sessions');
+  const [activeTab, setActiveTab] = useState<'sessions' | 'clients' | 'financials' | 'game'>('sessions');
 
   // Modals state
   const [isSessionModalOpen, setIsSessionModalOpen] = useState(false);
@@ -348,13 +349,26 @@ export default function App() {
               onToggleStatus={handleTogglePaymentStatus}
             />
           </div>
-        ) : (
+        ) : activeTab === 'clients' ? (
           /* Clients Directory Tab */
           <ClientsDirectory
             clients={clients}
             sessions={sessions}
             onSelectClientToFilter={handleFilterByClient}
             onAddSessionForClient={handleAddSessionForClient}
+          />
+        ) : (
+          /* Interactive Clinic Tycoon / Manager Game Mode */
+          <ClinicGameView
+            sessions={sessions}
+            clients={clients}
+            currentUser={currentUser}
+            onToggleStatus={handleTogglePaymentStatus}
+            onSaveSession={handleSaveSession}
+            onEditSession={handleEditSession}
+            onDeleteSession={handleDeleteClick}
+            onOpenAddModal={handleOpenAddSession}
+            onSwitchToClassic={() => setActiveTab('sessions')}
           />
         )}
       </main>

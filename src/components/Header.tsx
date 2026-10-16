@@ -1,9 +1,9 @@
-import { Activity, Plus, RefreshCw, FileSpreadsheet, Users, CalendarCheck, Smartphone, LogOut, User as UserIcon } from 'lucide-react';
+import { Activity, Plus, RefreshCw, FileSpreadsheet, Users, CalendarCheck, Smartphone, LogOut, User as UserIcon, Gamepad2 } from 'lucide-react';
 import { User } from '../services/auth';
 
 interface HeaderProps {
-  activeTab: 'sessions' | 'clients' | 'financials';
-  setActiveTab: (tab: 'sessions' | 'clients' | 'financials') => void;
+  activeTab: 'sessions' | 'clients' | 'financials' | 'game';
+  setActiveTab: (tab: 'sessions' | 'clients' | 'financials' | 'game') => void;
   onOpenAddModal: () => void;
   onOpenExportModal: () => void;
   onResetDatabase: () => void;
@@ -51,7 +51,7 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
 
           {/* Navigation Tabs */}
-          <div className="flex items-center bg-slate-100/90 p-1 rounded-xl border border-slate-200/80 text-sm">
+          <div className="flex items-center bg-slate-100/90 p-1 rounded-xl border border-slate-200/80 text-sm flex-wrap gap-1">
             <button
               onClick={() => setActiveTab('sessions')}
               className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all ${
@@ -79,6 +79,25 @@ export const Header: React.FC<HeaderProps> = ({
               <span>المرضى والعملاء</span>
               <span className="bg-slate-100 text-slate-600 text-xs px-1.5 py-0.2 rounded-full font-bold">
                 {totalClients}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('game')}
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all cursor-pointer ${
+                activeTab === 'game'
+                  ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-sm font-bold'
+                  : 'text-purple-700 hover:text-purple-900 hover:bg-purple-100/70 font-semibold'
+              }`}
+            >
+              <Gamepad2 className="w-4 h-4" />
+              <span>وضع اللعبة (إدارة العيادة)</span>
+              <span
+                className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+                  activeTab === 'game' ? 'bg-white/20 text-white' : 'bg-purple-200/80 text-purple-800'
+                }`}
+              >
+                🎮 محاكاة
               </span>
             </button>
           </div>

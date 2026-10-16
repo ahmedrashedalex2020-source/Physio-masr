@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Activity, Lock, Mail, Eye, EyeOff, AlertCircle, ArrowLeft, ShieldCheck, Check } from 'lucide-react';
+import { Activity, Lock, Mail, Eye, EyeOff, AlertCircle, ArrowLeft, ShieldCheck } from 'lucide-react';
 import { AuthService, User } from '../services/auth';
 
 interface LoginScreenProps {
@@ -7,8 +7,8 @@ interface LoginScreenProps {
 }
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
-  const [email, setEmail] = useState('mayalaa560@gmail.com');
-  const [password, setPassword] = useState('alaa1234');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -23,16 +23,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
       if (result.success && result.user) {
         onLoginSuccess(result.user);
       } else {
-        setError(result.error || 'فشل تسجيل الدخول');
+        setError(result.error || 'فشل تسجيل الدخول. يرجى التأكد من صحة البريد الإلكتروني وكلمة المرور.');
         setIsLoading(false);
       }
     }, 300);
-  };
-
-  const handleFillCredentials = () => {
-    setEmail('mayalaa560@gmail.com');
-    setPassword('alaa1234');
-    setError('');
   };
 
   return (
@@ -54,7 +48,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
             <div className="mb-6 text-center">
               <h2 className="text-lg font-bold text-slate-900">تسجيل الدخول للنظام</h2>
               <p className="text-xs text-slate-500 mt-1">
-                يرجى إدخال اسم المستخدم وكلمة المرور المصرح لهما بالدخول
+                يرجى إدخال البريد الإلكتروني وكلمة المرور الخاصة بحسابك
               </p>
             </div>
 
@@ -81,7 +75,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                     onChange={(e) => setEmail(e.target.value)}
                     required
                     dir="ltr"
-                    placeholder="mayalaa560@gmail.com"
+                    placeholder="example@gmail.com"
                     className="w-full pl-3 pr-9 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 text-slate-900 font-mono text-right"
                   />
                 </div>
@@ -113,25 +107,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
-              </div>
-
-              {/* Quick Fill Box */}
-              <div className="p-3 bg-teal-50/70 border border-teal-200/80 rounded-xl text-xs flex items-center justify-between">
-                <div>
-                  <span className="text-[11px] text-teal-800 block font-semibold">
-                    بيانات الحساب المعتمدة:
-                  </span>
-                  <span className="text-[11px] font-mono text-teal-900">
-                    mayalaa560@gmail.com / alaa1234
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleFillCredentials}
-                  className="px-2.5 py-1 bg-white hover:bg-teal-100 text-teal-800 font-bold rounded-lg border border-teal-300 transition-colors text-[11px] cursor-pointer"
-                >
-                  تعبئة تلقائية
-                </button>
               </div>
 
               {/* Submit Button */}
