@@ -7,11 +7,15 @@ import { ClientsDirectory } from './components/ClientsDirectory';
 import { SessionModal } from './components/SessionModal';
 import { DeleteConfirmModal } from './components/DeleteConfirmModal';
 import { ExportModal } from './components/ExportModal';
+import { InstallPromptModal } from './components/InstallPromptModal';
+import { LoginScreen } from './components/LoginScreen';
 import { StorageService, normalizeArabic } from './services/storage';
+import { AuthService, User } from './services/auth';
 import { SessionRecord, ClientProfile, FilterOptions } from './types';
-import { CheckCircle2, AlertCircle, Info, ShieldCheck, Database } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Info, ShieldCheck, Database, Smartphone } from 'lucide-react';
 
 export default function App() {
+  const [currentUser, setCurrentUser] = useState<User | null>(() => AuthService.getCurrentUser());
   const [sessions, setSessions] = useState<SessionRecord[]>([]);
   const [clients, setClients] = useState<ClientProfile[]>([]);
   const [activeTab, setActiveTab] = useState<'sessions' | 'clients' | 'financials'>('sessions');
@@ -29,6 +33,8 @@ export default function App() {
   const [sessionToDelete, setSessionToDelete] = useState<SessionRecord | null>(null);
 
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
 
   // Toast notifications
   const [toast, setToast] = useState<{
@@ -42,6 +48,19 @@ export default function App() {
       setToast(null);
     }, 4500);
   };
+
+  // Capture PWA Install event for Android Chrome
+  useEffect(() => {
+    const handleBeforeInstall = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+    };
+  }, []);
 
   // Filters State
   const [filters, setFilters] = useState<FilterOptions>({
@@ -217,6 +236,23 @@ export default function App() {
     setActiveTab('sessions');
   };
 
+  const handleLogout = () => {
+    AuthService.logout();
+    setCurrentUser(null);
+    showToast('تم تسجيل الخروج من النظام بنجاح', 'info');
+  };
+
+  if (!currentUser) {
+    return (
+      <LoginScreen
+        onLoginSuccess={(user) => {
+          setCurrentUser(user);
+          showToast(`مرحباً بك ${user.name}، تم تسجيل الدخول بنجاح`);
+        }}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col antialiased selection:bg-teal-100 selection:text-teal-900">
       {/* Toast Notification */}
@@ -250,9 +286,26 @@ export default function App() {
         onOpenAddModal={handleOpenAddSession}
         onOpenExportModal={() => setIsExportModalOpen(true)}
         onResetDatabase={handleResetDatabase}
+        onOpenInstallModal={() => setIsInstallModalOpen(true)}
+        currentUser={currentUser}
+        onLogout={handleLogout}
         totalSessions={sessions.length}
         totalClients={clients.length}
       />
+
+      {/* Mobile Quick Banner for PWA Installation */}
+      <div className="bg-gradient-to-r from-teal-700 to-teal-800 text-white text-xs px-4 py-2.5 shadow-xs flex items-center justify-between sm:hidden">
+        <div className="flex items-center gap-2">
+          <Smartphone className="w-4 h-4 text-teal-200 shrink-0" />
+          <span>تشغيل كـ تطبيق مباشر على الهاتف</span>
+        </div>
+        <button
+          onClick={() => setIsInstallModalOpen(true)}
+          className="bg-white text-teal-800 font-bold px-2.5 py-1 rounded-md text-[11px] shadow-xs hover:bg-teal-50 cursor-pointer"
+        >
+          تثبيت الآن
+        </button>
+      </div>
 
       {/* Content Area */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full">
@@ -332,6 +385,16 @@ export default function App() {
         isOpen={isExportModalOpen}
         onClose={() => setIsExportModalOpen(false)}
         sessions={sessions}
+      />
+
+      <InstallPromptModal
+        isOpen={isInstallModalOpen}
+        onClose={() => setIsInstallModalOpen(false)}
+        deferredPrompt={deferredPrompt}
+        onInstallSuccess={() => {
+          showToast('تم تثبيت التطبيق بنجاح على هاتفك!');
+          setDeferredPrompt(null);
+        }}
       />
     </div>
   );

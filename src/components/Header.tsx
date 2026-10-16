@@ -1,5 +1,5 @@
-import React from 'react';
-import { Activity, Plus, RefreshCw, FileSpreadsheet, Users, CalendarCheck } from 'lucide-react';
+import { Activity, Plus, RefreshCw, FileSpreadsheet, Users, CalendarCheck, Smartphone, LogOut, User as UserIcon } from 'lucide-react';
+import { User } from '../services/auth';
 
 interface HeaderProps {
   activeTab: 'sessions' | 'clients' | 'financials';
@@ -7,6 +7,9 @@ interface HeaderProps {
   onOpenAddModal: () => void;
   onOpenExportModal: () => void;
   onResetDatabase: () => void;
+  onOpenInstallModal: () => void;
+  currentUser: User | null;
+  onLogout: () => void;
   totalSessions: number;
   totalClients: number;
 }
@@ -17,6 +20,9 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenAddModal,
   onOpenExportModal,
   onResetDatabase,
+  onOpenInstallModal,
+  currentUser,
+  onLogout,
   totalSessions,
   totalClients,
 }) => {
@@ -80,6 +86,15 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Main Action Buttons */}
           <div className="flex items-center gap-2 flex-wrap">
             <button
+              onClick={onOpenInstallModal}
+              title="تثبيت التطبيق على هاتفك وتشغيله كـ تطبيق مستقل"
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-teal-700 hover:text-teal-900 bg-teal-50 hover:bg-teal-100/80 border border-teal-200/80 rounded-lg transition-colors cursor-pointer"
+            >
+              <Smartphone className="w-4 h-4 text-teal-600" />
+              <span>تثبيت التطبيق على الهاتف</span>
+            </button>
+
+            <button
               onClick={onResetDatabase}
               title="إعادة ضبط ومطابقة البيانات مع الصور الأصلية (68 جلسة)"
               className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-slate-600 hover:text-slate-800 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors cursor-pointer"
@@ -103,6 +118,27 @@ export const Header: React.FC<HeaderProps> = ({
               <Plus className="w-4 h-4 stroke-[2.5]" />
               <span>إضافة جلسة جديدة</span>
             </button>
+
+            {/* Logged in User Profile & Logout */}
+            {currentUser && (
+              <div className="flex items-center gap-1.5 pl-1 border-r border-slate-200 pr-2">
+                <div className="hidden lg:flex flex-col text-left">
+                  <span className="text-xs font-bold text-slate-800 leading-tight">
+                    {currentUser.name}
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    {currentUser.email}
+                  </span>
+                </div>
+                <button
+                  onClick={onLogout}
+                  title="تسجيل الخروج من النظام"
+                  className="p-2 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors border border-slate-200 cursor-pointer"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
