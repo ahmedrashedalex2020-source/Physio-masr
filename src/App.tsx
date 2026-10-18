@@ -254,47 +254,54 @@ export default function App() {
     setIsDeleteModalOpen(true);
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (!sessionToDelete) return;
-    const success = StorageService.deleteSession(sessionToDelete.id);
+    const target = sessionToDelete;
+    const success = await StorageService.deleteSession(target.id);
     if (success) {
-      setSessions((prev) => prev.filter((s) => s.id !== sessionToDelete.id));
-      showToast(`تم حذف جلسة العميل (${sessionToDelete.clientName}) بنجاح`, 'info');
+      setSessions(StorageService.getSessions());
+      setClients(StorageService.getClients());
+      showToast(`تم حذف جلسة العميل (${target.clientName}) من قاعدة البيانات بنجاح`, 'info');
+    } else {
+      showToast('تعذر حذف الجلسة من قاعدة البيانات. يرجى المحاولة مرة أخرى.', 'error');
     }
     setSessionToDelete(null);
   };
 
-  const handleTogglePaymentStatus = (id: string) => {
-    const updated = StorageService.togglePaymentStatus(id);
+  const handleTogglePaymentStatus = async (id: string) => {
+    const updated = await StorageService.togglePaymentStatus(id);
     if (updated) {
-      setSessions((prev) => prev.map((s) => (s.id === id ? updated : s)));
+      setSessions(StorageService.getSessions());
+      setClients(StorageService.getClients());
       showToast(
         updated.paymentStatus === 'paid'
-          ? `تم تحديث حالة جلسة (${updated.clientName}) إلى مدفوع بالكامل`
-          : `تم تحديث حالة جلسة (${updated.clientName}) إلى معلق / غير مدفوع`
+          ? `تم تحديث حالة جلسة (${updated.clientName}) في قاعدة البيانات إلى مدفوع بالكامل`
+          : `تم تحديث حالة جلسة (${updated.clientName}) في قاعدة البيانات إلى معلق / غير مدفوع`
       );
+    } else {
+      showToast('تعذر تحديث حالة الدفع في قاعدة البيانات.', 'error');
     }
   };
 
-  const handleSaveSession = (sessionData: any) => {
+  const handleSaveSession = async (sessionData: any): Promise<{ success: boolean; error?: string }> => {
     if (editingSession) {
-      // Update existing
-      const result = StorageService.updateSession(sessionData);
+      // Update existing directly in database
+      const result = await StorageService.updateSession(sessionData);
       if (result.success) {
         setSessions(StorageService.getSessions());
         setClients(StorageService.getClients());
-        showToast(`تم تحديث بيانات جلسة (${sessionData.clientName}) بنجاح`);
+        showToast(`تم تحديث بيانات جلسة (${sessionData.clientName}) في قاعدة البيانات بنجاح`);
         return { success: true };
       } else {
         return { success: false, error: result.error };
       }
     } else {
-      // Add new with duplicate prevention
-      const result = StorageService.addSession(sessionData);
+      // Add new directly to database
+      const result = await StorageService.addSession(sessionData);
       if (result.success && result.session) {
         setSessions(StorageService.getSessions());
         setClients(StorageService.getClients());
-        showToast(`تمت إضافة الجلسة لقاعدة البيانات بنجاح (مع منع التكرار)`);
+        showToast(`تمت إضافة الجلسة إلى قاعدة البيانات المركزية بنجاح 🟢`);
         return { success: true };
       } else {
         return { success: false, error: result.error };
@@ -302,38 +309,40 @@ export default function App() {
     }
   };
 
-  const handleResetDatabase = () => {
+  const handleResetDatabase = async () => {
     if (
       window.confirm(
-        'هل تريد مسح البيانات وإعادة تحميل السجلات الأصلية الـ 68 من الصور المرفقة مع التأكد من عدم وجود أي تكرار؟'
+        'هل تريد مسح البيانات وإعادة تحميل السجلات الأصلية الـ 68 من قاعدة البيانات المركزية مع التأكد من عدم وجود أي تكرار؟'
       )
     ) {
-      StorageService.resetToDefault();
-      const reloadedSessions = StorageService.getSessions();
-      const reloadedClients = StorageService.getClients();
-      setSessions(reloadedSessions);
-      setClients(reloadedClients);
-      showToast(
-        `تم مسح البيانات السابقة واستعادة الـ 68 جلسة الأصلية بنجاح دون أي تكرار (إجمالي 20,400 جنيه)`
-      );
+      const ok = await StorageService.resetToDefault();
+      if (ok) {
+        setSessions(StorageService.getSessions());
+        setClients(StorageService.getClients());
+        showToast(
+          `تمت استعادة الـ 68 جلسة الأصلية في قاعدة البيانات بنجاح دون أي تكرار (إجمالي 20,400 جنيه)`
+        );
+      } else {
+        showToast('تعذر إعادة ضبط قاعدة البيانات المركزية.', 'error');
+      }
     }
   };
 
   const handleManualSync = async () => {
     setSyncStatus('syncing');
-    showToast('جارٍ الاتصال بالسيرفر السحابي ومزامنة السجلات...', 'info');
+    showToast('جارٍ الاتصال بقاعدة البيانات المركزية وتحديث السجلات...', 'info');
     try {
       const res = await StorageService.fetchRemoteData();
       if (res) {
         setSyncStatus('synced');
-        showToast('تم الاتصال بالسيرفر بنجاح ومزامنة جميع السجلات 🟢', 'success');
+        showToast('تم الاتصال بقاعدة البيانات بنجاح وتحديث كافة السجلات 🟢', 'success');
       } else {
         setSyncStatus('offline');
-        showToast('النظام في وضع الحفظ المحلي الآمن 📱. جميع بياناتك وجلساتك محفوظة على هاتفك وسيتم رفعها للسيرفر فور توفر الاتصال.', 'info');
+        showToast('تعذر الاتصال بقاعدة البيانات المركزية. تحقق من تشغيل السيرفر والإنترنت.', 'error');
       }
     } catch {
       setSyncStatus('offline');
-      showToast('البيانات محفوظة محلياً بأمان على هاتفك (وضع الحفظ المحلي).', 'info');
+      showToast('خطأ في الاتصال بقاعدة البيانات المركزية.', 'error');
     }
   };
 
@@ -405,12 +414,12 @@ export default function App() {
         onManualSync={handleManualSync}
       />
 
-      {/* Mobile Quick Banner for PWA Installation & Cloud Sync */}
+      {/* Mobile Quick Banner for Central Database & PWA Installation */}
       {isStandalone ? (
         <div
           className={`text-xs px-3.5 py-2 shadow-xs flex items-center justify-between sm:hidden transition-colors ${
             syncStatus === 'offline'
-              ? 'bg-amber-900 text-amber-100 border-b border-amber-700'
+              ? 'bg-rose-950 text-rose-100 border-b border-rose-850'
               : 'bg-emerald-900 text-emerald-100 border-b border-emerald-800'
           }`}
         >
@@ -418,16 +427,16 @@ export default function App() {
             {syncStatus === 'syncing' ? (
               <RefreshCw className="w-4 h-4 text-amber-300 animate-spin" />
             ) : syncStatus === 'offline' ? (
-              <Database className="w-4 h-4 text-amber-300" />
+              <Database className="w-4 h-4 text-rose-300" />
             ) : (
               <CheckCircle2 className="w-4 h-4 text-emerald-300" />
             )}
             <span>
               {syncStatus === 'syncing'
-                ? 'جارٍ الاتصال ومزامنة السجلات...'
+                ? 'جارٍ الاتصال بقاعدة البيانات...'
                 : syncStatus === 'offline'
-                ? 'حفظ محلي آمن 💾 (بياناتك محفوظة على الهاتف)'
-                : 'متصل ومتزامن سحابياً 🟢'}
+                ? 'غير متصل بقاعدة البيانات المركزية ⚠️'
+                : 'متصل مباشرة بقاعدة البيانات 🟢'}
             </span>
           </div>
           <button
@@ -435,25 +444,25 @@ export default function App() {
             disabled={syncStatus === 'syncing'}
             className={`text-[11px] px-2.5 py-1 rounded font-bold flex items-center gap-1 cursor-pointer transition-colors ${
               syncStatus === 'offline'
-                ? 'bg-amber-500 hover:bg-amber-400 text-slate-900'
+                ? 'bg-rose-500 hover:bg-rose-400 text-white'
                 : 'bg-emerald-800 hover:bg-emerald-700 text-emerald-100 border border-emerald-700'
             }`}
           >
             <RefreshCw className={`w-3 h-3 ${syncStatus === 'syncing' ? 'animate-spin' : ''}`} />
-            <span>{syncStatus === 'offline' ? 'اتصال الآن' : 'تحديث'}</span>
+            <span>{syncStatus === 'offline' ? 'إعادة المحاولة' : 'تحديث'}</span>
           </button>
         </div>
       ) : (
         <div
           className={`text-white text-xs px-3.5 py-2.5 shadow-md flex items-center justify-between sm:hidden gap-2 transition-colors ${
             syncStatus === 'offline'
-              ? 'bg-gradient-to-r from-amber-800 via-amber-900 to-slate-900'
+              ? 'bg-gradient-to-r from-rose-900 via-rose-950 to-slate-900'
               : 'bg-gradient-to-r from-teal-700 via-teal-800 to-emerald-800'
           }`}
         >
           <div className="flex items-center gap-2 min-w-0">
             {syncStatus === 'offline' ? (
-              <Database className="w-4 h-4 text-amber-300 shrink-0" />
+              <Database className="w-4 h-4 text-rose-300 shrink-0" />
             ) : (
               <Smartphone className="w-4 h-4 text-teal-200 shrink-0 animate-pulse" />
             )}
@@ -461,10 +470,10 @@ export default function App() {
               <span className="font-bold block leading-tight truncate">مركز العلاج الطبيعي والتأهيل</span>
               <span className="text-[10px] text-teal-100">
                 {syncStatus === 'syncing'
-                  ? 'جارٍ المزامنة السحابية...'
+                  ? 'جارٍ الاتصال وتحديث قاعدة البيانات...'
                   : syncStatus === 'offline'
-                  ? 'وضع الحفظ المحلي (بياناتك محفوظة على الهاتف)'
-                  : 'متصل ومتزامن مع السيرفر 🟢'}
+                  ? 'غير متصل بقاعدة البيانات المركزية'
+                  : 'متصل مباشرة بقاعدة البيانات 🟢'}
               </span>
             </div>
           </div>
@@ -472,15 +481,15 @@ export default function App() {
             <button
               onClick={handleManualSync}
               disabled={syncStatus === 'syncing'}
-              title="مزامنة فورية"
+              title="تحديث من قاعدة البيانات"
               className={`text-[11px] px-2.5 py-1.5 rounded-md font-bold flex items-center gap-1 cursor-pointer shadow-xs ${
                 syncStatus === 'offline'
-                  ? 'bg-amber-400 hover:bg-amber-300 text-slate-950 font-black'
+                  ? 'bg-rose-500 hover:bg-rose-400 text-white font-black'
                   : 'bg-teal-600/90 hover:bg-teal-600 text-white border border-teal-400/40'
               }`}
             >
               <RefreshCw className={`w-3 h-3 ${syncStatus === 'syncing' ? 'animate-spin' : ''}`} />
-              <span>{syncStatus === 'offline' ? 'اتصال' : 'مزامنة'}</span>
+              <span>{syncStatus === 'offline' ? 'إعادة المحاولة' : 'تحديث'}</span>
             </button>
             <button
               onClick={() => setIsInstallModalOpen(true)}

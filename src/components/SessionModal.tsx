@@ -5,7 +5,7 @@ import { SessionRecord, PaymentStatus, PaymentMethod, ClientProfile } from '../t
 interface SessionModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (sessionData: any) => { success: boolean; error?: string };
+  onSave: (sessionData: any) => Promise<{ success: boolean; error?: string }> | { success: boolean; error?: string };
   initialData?: SessionRecord | null;
   existingClients: ClientProfile[];
   defaultClient?: { name: string; phone: string; condition: string } | null;
@@ -19,6 +19,7 @@ export const SessionModal: React.FC<SessionModalProps> = ({
   existingClients,
   defaultClient,
 }) => {
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [clientName, setClientName] = useState('');
   const [clientPhone, setClientPhone] = useState('');
   const [condition, setCondition] = useState('تأهيل خشونة الركبة والمفاصل');
@@ -86,7 +87,7 @@ export const SessionModal: React.FC<SessionModalProps> = ({
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!clientName.trim()) {
       setErrorMessage('يرجى كتابة أو اختيار اسم العميل');
@@ -96,6 +97,9 @@ export const SessionModal: React.FC<SessionModalProps> = ({
       setErrorMessage('يرجى تحديد تاريخ الجلسة');
       return;
     }
+
+    setIsSubmitting(true);
+    setErrorMessage('');
 
     const payload = {
       ...(initialData ? { id: initialData.id, createdAt: initialData.createdAt } : {}),
@@ -112,11 +116,17 @@ export const SessionModal: React.FC<SessionModalProps> = ({
       paymentMethod,
     };
 
-    const result = onSave(payload);
-    if (!result.success) {
-      setErrorMessage(result.error || 'حدث خطأ أثناء حفظ الجلسة');
-    } else {
-      onClose();
+    try {
+      const result = await onSave(payload);
+      if (!result.success) {
+        setErrorMessage(result.error || 'حدث خطأ أثناء حفظ الجلسة في قاعدة البيانات');
+      } else {
+        onClose();
+      }
+    } catch (err: any) {
+      setErrorMessage(err?.message || 'فشل الاتصال بقاعدة البيانات المركزية');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -333,15 +343,26 @@ export const SessionModal: React.FC<SessionModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+              disabled={isSubmitting}
+              className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
             >
               إلغاء
             </button>
             <button
               type="submit"
-              className="px-5 py-2 text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 rounded-lg transition-all shadow-sm shadow-teal-600/30 cursor-pointer"
+              disabled={isSubmitting}
+              className="px-5 py-2 text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 rounded-lg transition-all shadow-sm shadow-teal-600/30 cursor-pointer disabled:opacity-50 inline-flex items-center gap-2"
             >
-              {initialData ? 'حفظ التعديلات' : 'إضافة إلى قاعدة البيانات'}
+              {isSubmitting ? (
+                <>
+                  <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <span>جارٍ الحفظ في قاعدة البيانات...</span>
+                </>
+              ) : initialData ? (
+                'حفظ التعديلات في قاعدة البيانات'
+              ) : (
+                'إضافة إلى قاعدة البيانات مباشرة'
+              )}
             </button>
           </div>
         </form>

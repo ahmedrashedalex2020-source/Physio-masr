@@ -108,16 +108,16 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Main Action Buttons */}
           <div className="flex items-center gap-2 flex-wrap">
-            {/* Real-time Cloud Sync Button */}
+            {/* Real-time Central Database Sync Button */}
             <button
               onClick={onManualSync}
               disabled={syncStatus === 'syncing'}
-              title="مزامنة فورية وتحديث البيانات عبر السيرفر المركزي مع جميع الأجهزة (الهاتف والكمبيوتر)"
+              title="تحديث البيانات مباشرة من قاعدة البيانات المركزية وتحديث كافة الأجهزة (الهاتف والكمبيوتر)"
               className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg border transition-all cursor-pointer ${
                 syncStatus === 'syncing'
                   ? 'bg-amber-50 text-amber-700 border-amber-200'
                   : syncStatus === 'offline'
-                  ? 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-300 shadow-2xs'
+                  ? 'bg-rose-50 hover:bg-rose-100 text-rose-800 border-rose-300 shadow-2xs'
                   : 'bg-emerald-50 hover:bg-emerald-100/80 text-emerald-800 border-emerald-200/80 shadow-2xs'
               }`}
             >
@@ -126,23 +126,23 @@ export const Header: React.FC<HeaderProps> = ({
                   syncStatus === 'syncing'
                     ? 'animate-spin text-amber-600'
                     : syncStatus === 'offline'
-                    ? 'text-amber-600'
+                    ? 'text-rose-600'
                     : 'text-emerald-600'
                 }`}
               />
               <span className="hidden sm:inline">
                 {syncStatus === 'syncing'
-                  ? 'جارٍ المزامنة...'
+                  ? 'جارٍ الاتصال بقاعدة البيانات...'
                   : syncStatus === 'offline'
-                  ? 'حفظ محلي (اضغط للاتصال بالسيرفر)'
-                  : 'متصل ومتزامن سحابياً 🟢'}
+                  ? 'إعادة الاتصال بقاعدة البيانات 🔄'
+                  : 'متصل بقاعدة البيانات مباشرة 🟢'}
               </span>
               <span className="sm:hidden">
                 {syncStatus === 'syncing'
-                  ? 'مزامنة...'
+                  ? 'اتصال...'
                   : syncStatus === 'offline'
-                  ? 'اتصال بالسيرفر'
-                  : 'متزامن 🟢'}
+                  ? 'إعادة المحاولة 🔄'
+                  : 'متصل 🟢'}
               </span>
             </button>
 

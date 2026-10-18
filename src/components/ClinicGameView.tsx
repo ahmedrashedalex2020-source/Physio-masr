@@ -40,8 +40,8 @@ interface ClinicGameViewProps {
   sessions: SessionRecord[];
   clients: ClientProfile[];
   currentUser: User | null;
-  onToggleStatus: (id: string) => void;
-  onSaveSession: (sessionData: any) => { success: boolean; error?: string };
+  onToggleStatus: (id: string) => void | Promise<any>;
+  onSaveSession: (sessionData: any) => Promise<{ success: boolean; error?: string }> | { success: boolean; error?: string };
   onEditSession: (session: SessionRecord) => void;
   onDeleteSession: (session: SessionRecord) => void;
   onOpenAddModal: () => void;
