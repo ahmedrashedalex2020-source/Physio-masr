@@ -13,7 +13,7 @@ import { ClinicGameView } from './components/ClinicGameView';
 import { StorageService, normalizeArabic } from './services/storage';
 import { AuthService, User } from './services/auth';
 import { SessionRecord, ClientProfile, FilterOptions } from './types';
-import { CheckCircle2, AlertCircle, Info, ShieldCheck, Database, Smartphone } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Info, ShieldCheck, Database, Smartphone, RefreshCw } from 'lucide-react';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(() => AuthService.getCurrentUser());
@@ -36,6 +36,7 @@ export default function App() {
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isStandalone, setIsStandalone] = useState(false);
 
   // Toast notifications
   const [toast, setToast] = useState<{
@@ -50,14 +51,44 @@ export default function App() {
     }, 4500);
   };
 
-  // Capture PWA Install event for Android Chrome
+  // Capture PWA Install event for Android Chrome & detect mobile
   useEffect(() => {
+    const isRunningStandalone =
+      window.matchMedia('(display-mode: standalone)').matches ||
+      (window.navigator as any).standalone === true;
+    setIsStandalone(isRunningStandalone);
+
     const handleBeforeInstall = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e);
+      // Auto open install sheet on mobile if prompted
+      if (!isRunningStandalone) {
+        setIsInstallModalOpen(true);
+      }
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstall);
+
+    // Auto prompt mobile users after 1.5 seconds if not yet installed and not dismissed in this session
+    const isMobile =
+      /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+      window.innerWidth < 768;
+
+    try {
+      const dismissed = sessionStorage.getItem('pwa_prompt_dismissed');
+      if (isMobile && !isRunningStandalone && !dismissed) {
+        const timer = setTimeout(() => {
+          setIsInstallModalOpen(true);
+        }, 1500);
+        return () => {
+          clearTimeout(timer);
+          window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+        };
+      }
+    } catch {
+      // ignore
+    }
+
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
     };
@@ -74,12 +105,72 @@ export default function App() {
     clientName: '',
   });
 
-  // Load initial data
+  // Central Server Cloud Sync Status
+  const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing' | 'offline'>('synced');
+
+  // Load initial data and establish reactive sync across all devices
   useEffect(() => {
+    // 1. Instant local load for 0ms lag
     const loadedSessions = StorageService.getSessions();
     const loadedClients = StorageService.getClients();
     setSessions(loadedSessions);
     setClients(loadedClients);
+
+    // 2. Subscribe to reactive storage changes
+    const unsubscribe = StorageService.subscribe((newSessions, newClients) => {
+      setSessions(newSessions);
+      setClients(newClients);
+    });
+
+    // 3. Central server synchronization function
+    const triggerSync = async () => {
+      if (!navigator.onLine) {
+        setSyncStatus('offline');
+        return;
+      }
+      setSyncStatus('syncing');
+      try {
+        const remoteData = await StorageService.fetchRemoteData();
+        if (remoteData) {
+          setSyncStatus('synced');
+        } else {
+          setSyncStatus('offline');
+        }
+      } catch {
+        setSyncStatus('offline');
+      }
+    };
+
+    // Initial sync from central server immediately
+    triggerSync();
+
+    // 4. Auto sync on mobile unlock, tab switch or focus
+    const handleFocus = () => triggerSync();
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        triggerSync();
+      }
+    };
+    const handleOnline = () => triggerSync();
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('online', handleOnline);
+
+    // 5. Periodic background sync every 8 seconds when tab is open
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        triggerSync();
+      }
+    }, 8000);
+
+    return () => {
+      unsubscribe();
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('online', handleOnline);
+      clearInterval(interval);
+    };
   }, []);
 
   // Filtered Sessions
@@ -228,6 +319,24 @@ export default function App() {
     }
   };
 
+  const handleManualSync = async () => {
+    setSyncStatus('syncing');
+    showToast('جارٍ مزامنة وتحديث السجلات مع السيرفر المركزي...', 'info');
+    try {
+      const res = await StorageService.fetchRemoteData();
+      if (res) {
+        setSyncStatus('synced');
+        showToast('تمت المزامنة بنجاح وحفظ أحدث البيانات من السيرفر المركزي 🟢');
+      } else {
+        setSyncStatus('offline');
+        showToast('تعذر الاتصال بالسيرفر، يتم حفظ البيانات محلياً', 'error');
+      }
+    } catch {
+      setSyncStatus('offline');
+      showToast('تعذر الاتصال بالسيرفر، يتم حفظ البيانات محلياً', 'error');
+    }
+  };
+
   const handleFilterByClient = (clientName: string) => {
     setFilters((prev) => ({
       ...prev,
@@ -292,21 +401,62 @@ export default function App() {
         onLogout={handleLogout}
         totalSessions={sessions.length}
         totalClients={clients.length}
+        syncStatus={syncStatus}
+        onManualSync={handleManualSync}
       />
 
-      {/* Mobile Quick Banner for PWA Installation */}
-      <div className="bg-gradient-to-r from-teal-700 to-teal-800 text-white text-xs px-4 py-2.5 shadow-xs flex items-center justify-between sm:hidden">
-        <div className="flex items-center gap-2">
-          <Smartphone className="w-4 h-4 text-teal-200 shrink-0" />
-          <span>تشغيل كـ تطبيق مباشر على الهاتف</span>
+      {/* Mobile Quick Banner for PWA Installation & Cloud Sync */}
+      {isStandalone ? (
+        <div className="bg-emerald-900 text-emerald-100 text-xs px-3.5 py-2 shadow-xs flex items-center justify-between sm:hidden">
+          <div className="flex items-center gap-1.5 font-bold">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+            <span>
+              {syncStatus === 'syncing' ? 'جارٍ مزامنة السجلات...' : 'تطبيق نشط ومتزامن سحابياً 🟢'}
+            </span>
+          </div>
+          <button
+            onClick={handleManualSync}
+            disabled={syncStatus === 'syncing'}
+            className="bg-emerald-800 hover:bg-emerald-700 text-emerald-100 text-[11px] px-2.5 py-1 rounded border border-emerald-700 flex items-center gap-1 cursor-pointer"
+          >
+            <RefreshCw className={`w-3 h-3 ${syncStatus === 'syncing' ? 'animate-spin' : ''}`} />
+            <span>تحديث</span>
+          </button>
         </div>
-        <button
-          onClick={() => setIsInstallModalOpen(true)}
-          className="bg-white text-teal-800 font-bold px-2.5 py-1 rounded-md text-[11px] shadow-xs hover:bg-teal-50 cursor-pointer"
-        >
-          تثبيت الآن
-        </button>
-      </div>
+      ) : (
+        <div className="bg-gradient-to-r from-teal-700 via-teal-800 to-emerald-800 text-white text-xs px-3.5 py-2.5 shadow-md flex items-center justify-between sm:hidden gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <Smartphone className="w-4 h-4 text-teal-200 shrink-0 animate-pulse" />
+            <div className="truncate">
+              <span className="font-bold block leading-tight truncate">مركز العلاج الطبيعي والتأهيل</span>
+              <span className="text-[10px] text-teal-200">
+                {syncStatus === 'syncing'
+                  ? 'جارٍ المزامنة السحابية...'
+                  : syncStatus === 'offline'
+                  ? 'وضع غير متصل بالسيرفر'
+                  : 'متصل ومتزامن مع السيرفر 🟢'}
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              onClick={handleManualSync}
+              disabled={syncStatus === 'syncing'}
+              title="مزامنة فورية"
+              className="bg-teal-600/90 hover:bg-teal-600 text-white text-[11px] px-2.5 py-1.5 rounded-md font-bold flex items-center gap-1 border border-teal-400/40 cursor-pointer"
+            >
+              <RefreshCw className={`w-3 h-3 ${syncStatus === 'syncing' ? 'animate-spin' : ''}`} />
+              <span>مزامنة</span>
+            </button>
+            <button
+              onClick={() => setIsInstallModalOpen(true)}
+              className="bg-white text-teal-900 font-black px-2.5 py-1.5 rounded-md text-[11px] shadow-xs hover:bg-teal-50 cursor-pointer"
+            >
+              تثبيت 📱
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Content Area */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full">

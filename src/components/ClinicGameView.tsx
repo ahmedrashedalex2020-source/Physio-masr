@@ -34,6 +34,7 @@ import {
 } from 'lucide-react';
 import { SessionRecord, ClientProfile } from '../types';
 import { User } from '../services/auth';
+import { normalizeArabic } from '../services/storage';
 
 interface ClinicGameViewProps {
   sessions: SessionRecord[];
@@ -810,8 +811,8 @@ export const ClinicGameView: React.FC<ClinicGameViewProps> = ({
                   {sessions
                     .filter(
                       (s) =>
-                        s.clientName.trim().toLowerCase() ===
-                        selectedClientForInspection.name.trim().toLowerCase()
+                        normalizeArabic(s.clientName) ===
+                        normalizeArabic(selectedClientForInspection.name)
                     )
                     .map((s) => (
                       <div

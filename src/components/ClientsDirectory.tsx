@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Users, Phone, Calendar, Plus, ExternalLink, Search, Clock, DollarSign, Activity } from 'lucide-react';
 import { ClientProfile, SessionRecord } from '../types';
+import { normalizeArabic } from '../services/storage';
 
 interface ClientsDirectoryProps {
   clients: ClientProfile[];
@@ -17,10 +18,10 @@ export const ClientsDirectory: React.FC<ClientsDirectoryProps> = ({
 }) => {
   const [search, setSearch] = useState('');
 
-  // Calculate client-specific metrics
+  // Calculate client-specific metrics with robust Arabic normalization
   const clientData = clients.map((client) => {
     const clientSessions = sessions.filter(
-      (s) => s.clientName.trim().toLowerCase() === client.name.trim().toLowerCase()
+      (s) => normalizeArabic(s.clientName) === normalizeArabic(client.name)
     );
     const totalSessions = clientSessions.length;
     const totalSpent = clientSessions.reduce((sum, s) => sum + (Number(s.totalPrice) || 0), 0);
@@ -36,12 +37,14 @@ export const ClientsDirectory: React.FC<ClientsDirectoryProps> = ({
     };
   });
 
-  const filteredClients = clientData.filter(
-    (c) =>
-      c.name.toLowerCase().includes(search.toLowerCase()) ||
+  const filteredClients = clientData.filter((c) => {
+    const q = normalizeArabic(search);
+    return (
+      normalizeArabic(c.name).includes(q) ||
       c.phone.toLowerCase().includes(search.toLowerCase()) ||
-      c.primaryCondition.toLowerCase().includes(search.toLowerCase())
-  );
+      normalizeArabic(c.primaryCondition).includes(q)
+    );
+  });
 
   return (
     <div className="space-y-4">
