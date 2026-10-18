@@ -1,5 +1,5 @@
 // Service Worker for Progressive Web App
-const CACHE_NAME = 'physio-app-v1';
+const CACHE_NAME = 'physio-app-firestore-v3';
 const ASSETS = [
   '/',
   '/index.html',
@@ -35,13 +35,14 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Never intercept API requests with Service Worker - always let them go straight to the network
   const url = new URL(event.request.url);
-  if (url.pathname.startsWith('/api')) {
+
+  // Never intercept cross-origin requests (e.g., Firebase Firestore real-time streams) or API calls
+  if (url.origin !== self.location.origin || url.pathname.startsWith('/api')) {
     return;
   }
 
-  // Only handle GET requests for static assets
+  // Only handle GET requests for same-origin static assets
   if (event.request.method !== 'GET') return;
 
   event.respondWith(

@@ -1,0 +1,199 @@
+{
+  "entities": {
+    "SessionRecord": {
+      "title": "SessionRecord",
+      "description": "Represents a physical therapy clinic session record including attendance, condition, and payment details.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the session record.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "clientName": {
+          "type": "string",
+          "description": "Full name of the patient/client.",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "clientPhone": {
+          "type": "string",
+          "description": "Phone number of the patient or placeholder.",
+          "minLength": 1,
+          "maxLength": 50
+        },
+        "condition": {
+          "type": "string",
+          "description": "Medical or physical therapy condition/diagnosis.",
+          "minLength": 1,
+          "maxLength": 300
+        },
+        "notes": {
+          "type": "string",
+          "description": "Optional clinical or payment notes for the session.",
+          "minLength": 0,
+          "maxLength": 1000
+        },
+        "attendanceDate": {
+          "type": "string",
+          "description": "Date of attendance in YYYY-MM-DD format.",
+          "minLength": 1,
+          "maxLength": 20
+        },
+        "attendanceTime": {
+          "type": "string",
+          "description": "Time of attendance in HH:mm format.",
+          "minLength": 1,
+          "maxLength": 20
+        },
+        "basePrice": {
+          "type": "number",
+          "description": "Base session price in EGP."
+        },
+        "totalPrice": {
+          "type": "number",
+          "description": "Total final price in EGP."
+        },
+        "priceDetails": {
+          "type": "string",
+          "description": "Formatted breakdown of the session price.",
+          "minLength": 0,
+          "maxLength": 200
+        },
+        "paymentStatus": {
+          "type": "string",
+          "description": "Payment status of the session.",
+          "enum": ["pending", "paid", "cancelled"]
+        },
+        "paymentMethod": {
+          "type": "string",
+          "description": "Payment method used for the session.",
+          "enum": ["cash", "bank_transfer", "credit_card"]
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "ISO timestamp when the session was created.",
+          "minLength": 1,
+          "maxLength": 64
+        }
+      },
+      "required": [
+        "id",
+        "clientName",
+        "clientPhone",
+        "condition",
+        "attendanceDate",
+        "attendanceTime",
+        "basePrice",
+        "totalPrice",
+        "priceDetails",
+        "paymentStatus",
+        "paymentMethod",
+        "createdAt"
+      ]
+    },
+    "ClientProfile": {
+      "title": "ClientProfile",
+      "description": "Represents a patient/client profile in the physical therapy clinic directory.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the client profile.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "name": {
+          "type": "string",
+          "description": "Full name of the client.",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "phone": {
+          "type": "string",
+          "description": "Phone number of the client.",
+          "minLength": 1,
+          "maxLength": 50
+        },
+        "primaryCondition": {
+          "type": "string",
+          "description": "Primary physical therapy condition of the client.",
+          "minLength": 1,
+          "maxLength": 300
+        },
+        "notes": {
+          "type": "string",
+          "description": "Optional clinical notes for the client.",
+          "minLength": 0,
+          "maxLength": 1000
+        },
+        "firstVisitDate": {
+          "type": "string",
+          "description": "Date of first clinic visit in YYYY-MM-DD format.",
+          "minLength": 1,
+          "maxLength": 20
+        },
+        "lastVisitDate": {
+          "type": "string",
+          "description": "Date of most recent clinic visit in YYYY-MM-DD format.",
+          "minLength": 1,
+          "maxLength": 20
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "phone",
+        "primaryCondition",
+        "firstVisitDate",
+        "lastVisitDate"
+      ]
+    },
+    "SyncMeta": {
+      "title": "SyncMeta",
+      "description": "Tracks clinic database initialization and synchronization metadata.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Metadata document identifier.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "seeded": {
+          "type": "boolean",
+          "description": "Whether initial clinic records have been seeded."
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "ISO timestamp of last metadata update.",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "totalSessions": {
+          "type": "number",
+          "description": "Count of seeded sessions."
+        }
+      },
+      "required": ["id", "seeded", "updatedAt", "totalSessions"]
+    }
+  },
+  "firestore": {
+    "/sessions/{sessionId}": {
+      "schema": "SessionRecord",
+      "description": "Collection of physical therapy clinic sessions synchronized across desktop and mobile devices."
+    },
+    "/clients/{clientId}": {
+      "schema": "ClientProfile",
+      "description": "Collection of patient profiles synchronized across desktop and mobile devices."
+    },
+    "/sync_meta/{metaId}": {
+      "schema": "SyncMeta",
+      "description": "Collection storing clinic initialization and seed status metadata."
+    }
+  }
+}

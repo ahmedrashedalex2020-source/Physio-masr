@@ -108,68 +108,35 @@ export default function App() {
   // Central Server Cloud Sync Status
   const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing' | 'offline'>('synced');
 
-  // Load initial data and establish reactive sync across all devices
+  // Load initial data and establish silent real-time Firestore sync across all devices
   useEffect(() => {
-    // 1. Instant local load for 0ms lag
-    const loadedSessions = StorageService.getSessions();
-    const loadedClients = StorageService.getClients();
-    setSessions(loadedSessions);
-    setClients(loadedClients);
+    setSessions(StorageService.getSessions());
+    setClients(StorageService.getClients());
 
-    // 2. Subscribe to reactive storage changes
-    const unsubscribe = StorageService.subscribe((newSessions, newClients) => {
+    const unsubscribeData = StorageService.subscribe((newSessions, newClients) => {
       setSessions(newSessions);
       setClients(newClients);
     });
 
-    // 3. Central server synchronization function
-    const triggerSync = async () => {
-      if (!navigator.onLine) {
-        setSyncStatus('offline');
-        return;
-      }
-      setSyncStatus('syncing');
-      try {
-        const remoteData = await StorageService.fetchRemoteData();
-        if (remoteData) {
-          setSyncStatus('synced');
-        } else {
-          setSyncStatus('offline');
-        }
-      } catch {
-        setSyncStatus('offline');
-      }
+    const unsubscribeStatus = StorageService.subscribeStatus((status) => {
+      setSyncStatus(status);
+    });
+
+    const handleOnline = () => {
+      setSyncStatus('synced');
+    };
+    const handleOffline = () => {
+      setSyncStatus('offline');
     };
 
-    // Initial sync from central server immediately
-    triggerSync();
-
-    // 4. Auto sync on mobile unlock, tab switch or focus
-    const handleFocus = () => triggerSync();
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible') {
-        triggerSync();
-      }
-    };
-    const handleOnline = () => triggerSync();
-
-    window.addEventListener('focus', handleFocus);
-    document.addEventListener('visibilitychange', handleVisibility);
     window.addEventListener('online', handleOnline);
-
-    // 5. Periodic background sync every 8 seconds when tab is open
-    const interval = setInterval(() => {
-      if (document.visibilityState === 'visible') {
-        triggerSync();
-      }
-    }, 8000);
+    window.addEventListener('offline', handleOffline);
 
     return () => {
-      unsubscribe();
-      window.removeEventListener('focus', handleFocus);
-      document.removeEventListener('visibilitychange', handleVisibility);
+      unsubscribeData();
+      unsubscribeStatus();
       window.removeEventListener('online', handleOnline);
-      clearInterval(interval);
+      window.removeEventListener('offline', handleOffline);
     };
   }, []);
 
@@ -511,12 +478,18 @@ export default function App() {
           <div className="flex items-center gap-2">
             <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
             <span>
-              <strong>حالة قاعدة البيانات:</strong> تم مسح البيانات السابقة وإدخال كافة بيانات الجلسات الـ 68 من الصور المرفقة بدقة 100% مع تفعيل نظام الحماية من التكرار والربط التلقائي بملفات المرضى.
+              <strong>حالة قاعدة البيانات السحابية (Firebase Firestore):</strong> مزامنة لحظية صامتة وموحدة بنسبة 100% بين الكمبيوتر والموبايل مع حفظ فوري لكافة الإضافات والتعديلات ومنع التكرار.
             </span>
           </div>
           <div className="hidden sm:flex items-center gap-1.5 font-mono text-[11px] text-emerald-700 font-semibold bg-white/70 px-2 py-0.5 rounded border border-emerald-200">
             <Database className="w-3 h-3" />
-            <span>68 سجل | 20,400 ج.م</span>
+            <span>
+              {sessions.length} سجل |{' '}
+              {sessions
+                .reduce((sum, s) => sum + (Number(s.totalPrice) || 0), 0)
+                .toLocaleString('en-US')}{' '}
+              ج.م
+            </span>
           </div>
         </div>
 
