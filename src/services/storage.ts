@@ -45,34 +45,132 @@ class StorageServiceClass {
     });
   }
 
+  private fetchPromise: Promise<{ sessions: SessionRecord[]; clients: ClientProfile[] } | null> | null = null;
+
   /**
    * Syncs with central server database (ensures changes appear across all devices: PC, Mobile, etc.)
+   * Includes smart merge so sessions added while offline on mobile are never lost and get pushed to server.
    */
   async fetchRemoteData(): Promise<{ sessions: SessionRecord[]; clients: ClientProfile[] } | null> {
-    if (this.isFetching) return null;
-    this.isFetching = true;
+    if (this.fetchPromise) {
+      return this.fetchPromise;
+    }
+
+    this.fetchPromise = (async () => {
+      try {
+        const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+        const timeoutId = controller ? setTimeout(() => controller.abort(), 8000) : null;
+
+        const res = await fetch('/api/data', {
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Accept': 'application/json',
+          },
+          cache: 'no-store',
+          signal: controller?.signal,
+        });
+
+        if (timeoutId) clearTimeout(timeoutId);
+
+        if (res.ok) {
+          const contentType = res.headers.get('content-type') || '';
+          if (!contentType.includes('application/json')) {
+            console.warn('Expected JSON from /api/data but received HTML/other content');
+            return null;
+          }
+
+          const data = await res.json();
+          if (data && Array.isArray(data.sessions) && Array.isArray(data.clients)) {
+            // Smart Merge: preserve any sessions created locally on mobile while offline
+            const localSessions = this.getSessions();
+            const serverSessionIds = new Set(data.sessions.map((s: SessionRecord) => s.id));
+            
+            // Sessions present locally but not on server yet (created offline)
+            const unsyncedLocalSessions = localSessions.filter(
+              (s) => !serverSessionIds.has(s.id) && s.id.startsWith('sess-')
+            );
+
+            // Merge unsynced local sessions with server sessions (no duplicates)
+            const mergedSessions = [...unsyncedLocalSessions, ...data.sessions];
+
+            // Auto-push any unsynced offline sessions to server in background
+            if (unsyncedLocalSessions.length > 0) {
+              unsyncedLocalSessions.forEach((unsynced) => {
+                fetch('/api/sessions', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(unsynced),
+                }).catch(() => {});
+              });
+            }
+
+            // Sync merged data
+            this.saveSessions(mergedSessions, false);
+            
+            // Recompute or merge clients to ensure every client record is updated with latest sessions
+            const mergedClients = this.reconcileClientsWithSessions(mergedSessions, data.clients);
+            this.saveClients(mergedClients, false);
+
+            this.notify(mergedSessions, mergedClients);
+            return { sessions: mergedSessions, clients: mergedClients };
+          }
+        }
+      } catch (err) {
+        console.warn('API sync connection issue, keeping local storage safe:', err);
+      }
+      return null;
+    })();
 
     try {
-      const res = await fetch('/api/data', {
-        headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' },
-        cache: 'no-store',
-      });
+      return await this.fetchPromise;
+    } finally {
+      this.fetchPromise = null;
+    }
+  }
 
-      if (res.ok) {
-        const data = await res.json();
-        if (data && Array.isArray(data.sessions) && Array.isArray(data.clients)) {
-          this.saveSessions(data.sessions, false);
-          this.saveClients(data.clients, false);
-          this.notify(data.sessions, data.clients);
-          return { sessions: data.sessions, clients: data.clients };
+  /**
+   * Reconciles client records with sessions to ensure total count, last visits, and condition match
+   */
+  private reconcileClientsWithSessions(
+    sessions: SessionRecord[],
+    serverClients: ClientProfile[]
+  ): ClientProfile[] {
+    const clientsMap = new Map<string, ClientProfile>();
+
+    // Start with server clients
+    serverClients.forEach((cli) => {
+      clientsMap.set(normalizeArabic(cli.name), { ...cli });
+    });
+
+    // Ensure every session has its client represented
+    sessions.forEach((s) => {
+      const normName = normalizeArabic(s.clientName);
+      let client = clientsMap.get(normName);
+      if (!client) {
+        client = {
+          id: `cli-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+          name: s.clientName,
+          phone: s.clientPhone || 'بدون هاتف',
+          primaryCondition: s.condition,
+          firstVisitDate: s.attendanceDate,
+          lastVisitDate: s.attendanceDate,
+        };
+        clientsMap.set(normName, client);
+      } else {
+        if (s.clientPhone && s.clientPhone !== 'بدون هاتف' && (!client.phone || client.phone === 'بدون هاتف')) {
+          client.phone = s.clientPhone;
+        }
+        if (!client.lastVisitDate || s.attendanceDate > client.lastVisitDate) {
+          client.lastVisitDate = s.attendanceDate;
+        }
+        if (!client.firstVisitDate || s.attendanceDate < client.firstVisitDate) {
+          client.firstVisitDate = s.attendanceDate;
         }
       }
-    } catch (err) {
-      console.warn('API sync failed, using local offline storage:', err);
-    } finally {
-      this.isFetching = false;
-    }
-    return null;
+    });
+
+    return Array.from(clientsMap.values());
   }
 
   getSessions(): SessionRecord[] {

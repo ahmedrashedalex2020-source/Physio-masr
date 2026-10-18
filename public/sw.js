@@ -35,8 +35,15 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Let network handle dynamic requests, fallback to cache
+  // Never intercept API requests with Service Worker - always let them go straight to the network
+  const url = new URL(event.request.url);
+  if (url.pathname.startsWith('/api')) {
+    return;
+  }
+
+  // Only handle GET requests for static assets
   if (event.request.method !== 'GET') return;
+
   event.respondWith(
     fetch(event.request).catch(() => {
       return caches.match(event.request).then((response) => {

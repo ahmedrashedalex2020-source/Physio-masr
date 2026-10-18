@@ -117,24 +117,32 @@ export const Header: React.FC<HeaderProps> = ({
                 syncStatus === 'syncing'
                   ? 'bg-amber-50 text-amber-700 border-amber-200'
                   : syncStatus === 'offline'
-                  ? 'bg-slate-100 text-slate-700 border-slate-300'
+                  ? 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-300 shadow-2xs'
                   : 'bg-emerald-50 hover:bg-emerald-100/80 text-emerald-800 border-emerald-200/80 shadow-2xs'
               }`}
             >
               <RefreshCw
                 className={`w-3.5 h-3.5 ${
-                  syncStatus === 'syncing' ? 'animate-spin text-amber-600' : 'text-emerald-600'
+                  syncStatus === 'syncing'
+                    ? 'animate-spin text-amber-600'
+                    : syncStatus === 'offline'
+                    ? 'text-amber-600'
+                    : 'text-emerald-600'
                 }`}
               />
               <span className="hidden sm:inline">
                 {syncStatus === 'syncing'
                   ? 'جارٍ المزامنة...'
                   : syncStatus === 'offline'
-                  ? 'وضع غير متصل'
-                  : 'متصل ومتزامن'}
+                  ? 'حفظ محلي (اضغط للاتصال بالسيرفر)'
+                  : 'متصل ومتزامن سحابياً 🟢'}
               </span>
               <span className="sm:hidden">
-                {syncStatus === 'syncing' ? 'مزامنة...' : 'مزامنة'}
+                {syncStatus === 'syncing'
+                  ? 'مزامنة...'
+                  : syncStatus === 'offline'
+                  ? 'اتصال بالسيرفر'
+                  : 'متزامن 🟢'}
               </span>
             </button>
 

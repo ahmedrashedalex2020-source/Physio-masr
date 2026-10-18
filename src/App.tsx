@@ -321,19 +321,19 @@ export default function App() {
 
   const handleManualSync = async () => {
     setSyncStatus('syncing');
-    showToast('جارٍ مزامنة وتحديث السجلات مع السيرفر المركزي...', 'info');
+    showToast('جارٍ الاتصال بالسيرفر السحابي ومزامنة السجلات...', 'info');
     try {
       const res = await StorageService.fetchRemoteData();
       if (res) {
         setSyncStatus('synced');
-        showToast('تمت المزامنة بنجاح وحفظ أحدث البيانات من السيرفر المركزي 🟢');
+        showToast('تم الاتصال بالسيرفر بنجاح ومزامنة جميع السجلات 🟢', 'success');
       } else {
         setSyncStatus('offline');
-        showToast('تعذر الاتصال بالسيرفر، يتم حفظ البيانات محلياً', 'error');
+        showToast('النظام في وضع الحفظ المحلي الآمن 📱. جميع بياناتك وجلساتك محفوظة على هاتفك وسيتم رفعها للسيرفر فور توفر الاتصال.', 'info');
       }
     } catch {
       setSyncStatus('offline');
-      showToast('تعذر الاتصال بالسيرفر، يتم حفظ البيانات محلياً', 'error');
+      showToast('البيانات محفوظة محلياً بأمان على هاتفك (وضع الحفظ المحلي).', 'info');
     }
   };
 
@@ -407,33 +407,63 @@ export default function App() {
 
       {/* Mobile Quick Banner for PWA Installation & Cloud Sync */}
       {isStandalone ? (
-        <div className="bg-emerald-900 text-emerald-100 text-xs px-3.5 py-2 shadow-xs flex items-center justify-between sm:hidden">
+        <div
+          className={`text-xs px-3.5 py-2 shadow-xs flex items-center justify-between sm:hidden transition-colors ${
+            syncStatus === 'offline'
+              ? 'bg-amber-900 text-amber-100 border-b border-amber-700'
+              : 'bg-emerald-900 text-emerald-100 border-b border-emerald-800'
+          }`}
+        >
           <div className="flex items-center gap-1.5 font-bold">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+            {syncStatus === 'syncing' ? (
+              <RefreshCw className="w-4 h-4 text-amber-300 animate-spin" />
+            ) : syncStatus === 'offline' ? (
+              <Database className="w-4 h-4 text-amber-300" />
+            ) : (
+              <CheckCircle2 className="w-4 h-4 text-emerald-300" />
+            )}
             <span>
-              {syncStatus === 'syncing' ? 'جارٍ مزامنة السجلات...' : 'تطبيق نشط ومتزامن سحابياً 🟢'}
+              {syncStatus === 'syncing'
+                ? 'جارٍ الاتصال ومزامنة السجلات...'
+                : syncStatus === 'offline'
+                ? 'حفظ محلي آمن 💾 (بياناتك محفوظة على الهاتف)'
+                : 'متصل ومتزامن سحابياً 🟢'}
             </span>
           </div>
           <button
             onClick={handleManualSync}
             disabled={syncStatus === 'syncing'}
-            className="bg-emerald-800 hover:bg-emerald-700 text-emerald-100 text-[11px] px-2.5 py-1 rounded border border-emerald-700 flex items-center gap-1 cursor-pointer"
+            className={`text-[11px] px-2.5 py-1 rounded font-bold flex items-center gap-1 cursor-pointer transition-colors ${
+              syncStatus === 'offline'
+                ? 'bg-amber-500 hover:bg-amber-400 text-slate-900'
+                : 'bg-emerald-800 hover:bg-emerald-700 text-emerald-100 border border-emerald-700'
+            }`}
           >
             <RefreshCw className={`w-3 h-3 ${syncStatus === 'syncing' ? 'animate-spin' : ''}`} />
-            <span>تحديث</span>
+            <span>{syncStatus === 'offline' ? 'اتصال الآن' : 'تحديث'}</span>
           </button>
         </div>
       ) : (
-        <div className="bg-gradient-to-r from-teal-700 via-teal-800 to-emerald-800 text-white text-xs px-3.5 py-2.5 shadow-md flex items-center justify-between sm:hidden gap-2">
+        <div
+          className={`text-white text-xs px-3.5 py-2.5 shadow-md flex items-center justify-between sm:hidden gap-2 transition-colors ${
+            syncStatus === 'offline'
+              ? 'bg-gradient-to-r from-amber-800 via-amber-900 to-slate-900'
+              : 'bg-gradient-to-r from-teal-700 via-teal-800 to-emerald-800'
+          }`}
+        >
           <div className="flex items-center gap-2 min-w-0">
-            <Smartphone className="w-4 h-4 text-teal-200 shrink-0 animate-pulse" />
+            {syncStatus === 'offline' ? (
+              <Database className="w-4 h-4 text-amber-300 shrink-0" />
+            ) : (
+              <Smartphone className="w-4 h-4 text-teal-200 shrink-0 animate-pulse" />
+            )}
             <div className="truncate">
               <span className="font-bold block leading-tight truncate">مركز العلاج الطبيعي والتأهيل</span>
-              <span className="text-[10px] text-teal-200">
+              <span className="text-[10px] text-teal-100">
                 {syncStatus === 'syncing'
                   ? 'جارٍ المزامنة السحابية...'
                   : syncStatus === 'offline'
-                  ? 'وضع غير متصل بالسيرفر'
+                  ? 'وضع الحفظ المحلي (بياناتك محفوظة على الهاتف)'
                   : 'متصل ومتزامن مع السيرفر 🟢'}
               </span>
             </div>
@@ -443,10 +473,14 @@ export default function App() {
               onClick={handleManualSync}
               disabled={syncStatus === 'syncing'}
               title="مزامنة فورية"
-              className="bg-teal-600/90 hover:bg-teal-600 text-white text-[11px] px-2.5 py-1.5 rounded-md font-bold flex items-center gap-1 border border-teal-400/40 cursor-pointer"
+              className={`text-[11px] px-2.5 py-1.5 rounded-md font-bold flex items-center gap-1 cursor-pointer shadow-xs ${
+                syncStatus === 'offline'
+                  ? 'bg-amber-400 hover:bg-amber-300 text-slate-950 font-black'
+                  : 'bg-teal-600/90 hover:bg-teal-600 text-white border border-teal-400/40'
+              }`}
             >
               <RefreshCw className={`w-3 h-3 ${syncStatus === 'syncing' ? 'animate-spin' : ''}`} />
-              <span>مزامنة</span>
+              <span>{syncStatus === 'offline' ? 'اتصال' : 'مزامنة'}</span>
             </button>
             <button
               onClick={() => setIsInstallModalOpen(true)}
