@@ -73,23 +73,23 @@ async function startServer() {
 
   app.use(express.json());
 
-  // Full CORS support for Mobile PWA, Webviews, and Cross-Origin clients
+  // Full CORS and Anti-Cache headers for Mobile PWA, Webviews, and Cross-Origin clients
   app.use((req, res, next) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Pragma, Cache-Control, X-Requested-With');
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.setHeader('Surrogate-Control', 'no-store');
     if (req.method === 'OPTIONS') {
       return res.sendStatus(200);
     }
     next();
   });
 
-  // Prevent aggressive caching of API responses across mobile and desktop
-  app.use('/api', (_req, res, next) => {
-    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-    res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Expires', '0');
-    next();
+  app.get('/api/version', (_req, res) => {
+    res.json({ version: '2026-10-25-v6', timestamp: new Date().toISOString() });
   });
 
   // API Endpoints

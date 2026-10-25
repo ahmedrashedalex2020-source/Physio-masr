@@ -2,14 +2,17 @@
 <html lang="ar" dir="rtl">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
     <title>نظام إدارة جلسات وعملاء العلاج الطبيعي والتأهيل</title>
     <meta name="description" content="نظام احترافي لإدارة سجلات العملاء وجلسات العلاج الطبيعي والتأهيل الحركي والمدفوعات والحالات بدقة متناهية." />
     <meta property="og:title" content="نظام إدارة جلسات وعملاء العلاج الطبيعي والتأهيل" />
     <meta property="og:description" content="نظام احترافي لإدارة سجلات العملاء وجلسات العلاج الطبيعي والتأهيل الحركي والمدفوعات والحالات بدقة متناهية." />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
-    <link rel="manifest" href="/manifest.json" />
+    <link rel="manifest" href="/manifest.json?v=6" />
     <meta name="theme-color" content="#0d9488" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -22,6 +25,33 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+      (function () {
+        var CURRENT_UI_VERSION = '2026-10-25-v6';
+        try {
+          var savedVersion = localStorage.getItem('physio_ui_build_version');
+          if (savedVersion !== CURRENT_UI_VERSION) {
+            localStorage.setItem('physio_ui_build_version', CURRENT_UI_VERSION);
+            if ('caches' in window) {
+              caches.keys().then(function (keys) {
+                return Promise.all(keys.map(function (k) { return caches.delete(k); }));
+              });
+            }
+            if ('serviceWorker' in navigator) {
+              navigator.serviceWorker.getRegistrations().then(function (regs) {
+                return Promise.all(regs.map(function (r) { return r.unregister(); }));
+              }).then(function () {
+                if (!window.location.search.includes('v=' + CURRENT_UI_VERSION)) {
+                  var url = new URL(window.location.href);
+                  url.searchParams.set('v', CURRENT_UI_VERSION);
+                  window.location.replace(url.toString());
+                }
+              });
+            }
+          }
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
@@ -29,7 +59,12 @@
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js').catch(() => {});
+          navigator.serviceWorker
+            .register('/sw.js?v=6', { updateViaCache: 'none' })
+            .then((reg) => {
+              reg.update().catch(() => {});
+            })
+            .catch(() => {});
         });
       }
     </script>

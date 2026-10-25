@@ -91,8 +91,8 @@ export const CloseMonthModal: React.FC<CloseMonthModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const executeCloseMonth = async () => {
+    if (isSubmitting) return;
     if (openSessions.length === 0) {
       setErrorMsg('لا توجد جلسات مفتوحة حالياً لتقفيلها.');
       return;
@@ -112,34 +112,47 @@ export const CloseMonthModal: React.FC<CloseMonthModalProps> = ({
     }
   };
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await executeCloseMonth();
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-slate-900/60 backdrop-blur-xs">
-      <div className="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-md w-full max-h-[92dvh] flex flex-col overflow-hidden">
-        {/* Compact Header */}
-        <div className="px-4 py-3 bg-slate-900 text-white flex items-center justify-between gap-2 shrink-0">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-900/60 backdrop-blur-xs">
+      <div className="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-md w-full max-h-[88dvh] flex flex-col overflow-hidden">
+        {/* Compact Header with quick Save button on top for Mobile */}
+        <div className="px-3.5 py-2.5 bg-slate-900 text-white flex items-center justify-between gap-2 shrink-0">
           <div className="flex items-center gap-2 min-w-0">
-            <div className="w-8 h-8 rounded-lg bg-teal-500/20 border border-teal-400/30 flex items-center justify-center text-teal-300 shrink-0">
+            <div className="w-7 h-7 rounded-lg bg-teal-500/20 border border-teal-400/30 flex items-center justify-center text-teal-300 shrink-0">
               <Archive className="w-4 h-4" />
             </div>
-            <div className="min-w-0">
-              <h3 className="text-sm sm:text-base font-bold truncate">
-                تقفيل حساب الشهر وبداية شهر جديد
-              </h3>
-            </div>
+            <h3 className="text-xs sm:text-sm font-bold truncate">
+              تقفيل حساب الشهر وبداية شهر جديد
+            </h3>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-slate-400 hover:text-white p-1 rounded-lg transition-colors cursor-pointer shrink-0"
-            aria-label="إغلاق"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              type="button"
+              onClick={executeCloseMonth}
+              disabled={isSubmitting || openSessions.length === 0}
+              className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold text-white bg-teal-600 hover:bg-teal-500 disabled:opacity-50 transition-colors cursor-pointer whitespace-nowrap"
+            >
+              {isSubmitting ? 'جارٍ الحفظ...' : 'حفظ وتقفيل'}
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="text-slate-400 hover:text-white p-1 rounded-lg transition-colors cursor-pointer shrink-0"
+              aria-label="إغلاق"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {/* Form with scrollable body and pinned footer */}
         <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0 overflow-hidden">
-          <div className="p-3.5 sm:p-4 space-y-3 overflow-y-auto flex-1">
+          <div className="p-3 sm:p-4 space-y-2.5 overflow-y-auto flex-1">
             {errorMsg && (
               <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
@@ -148,7 +161,7 @@ export const CloseMonthModal: React.FC<CloseMonthModalProps> = ({
             )}
 
             {/* Compact Current Period Summary Box */}
-            <div className="bg-slate-50 rounded-xl border border-slate-200 p-2.5 sm:p-3 space-y-2">
+            <div className="bg-slate-50 rounded-xl border border-slate-200 p-2.5 space-y-2">
               <div className="flex items-center justify-between gap-2 text-[11px] text-slate-600 border-b border-slate-200/80 pb-1.5">
                 <span className="font-bold text-slate-800">ملخص الحساب المراد تقفيله:</span>
                 <span className="font-mono tabular-nums text-slate-500" dir="ltr">
@@ -162,7 +175,7 @@ export const CloseMonthModal: React.FC<CloseMonthModalProps> = ({
                     <CalendarCheck className="w-3.5 h-3.5 text-teal-600 shrink-0" />
                     <span className="truncate">الجلسات المفتوحة</span>
                   </div>
-                  <div className="text-sm sm:text-base font-extrabold text-slate-900 font-mono tabular-nums">
+                  <div className="text-sm font-extrabold text-slate-900 font-mono tabular-nums">
                     {summary.totalSessions} <span className="text-[11px] font-normal">جلسة</span>
                   </div>
                 </div>
@@ -172,7 +185,7 @@ export const CloseMonthModal: React.FC<CloseMonthModalProps> = ({
                     <Wallet className="w-3.5 h-3.5 text-blue-600 shrink-0" />
                     <span className="truncate">إجمالي حساب الفترة</span>
                   </div>
-                  <div className="text-sm sm:text-base font-extrabold text-slate-900 font-mono tabular-nums">
+                  <div className="text-sm font-extrabold text-slate-900 font-mono tabular-nums">
                     {summary.totalRevenue.toLocaleString('en-US')}{' '}
                     <span className="text-[11px] font-normal">ج.م</span>
                   </div>
@@ -183,7 +196,7 @@ export const CloseMonthModal: React.FC<CloseMonthModalProps> = ({
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                     <span className="truncate">المحصل ({summary.paidCount})</span>
                   </div>
-                  <div className="text-xs sm:text-sm font-bold text-emerald-700 font-mono tabular-nums">
+                  <div className="text-xs font-bold text-emerald-700 font-mono tabular-nums">
                     {summary.paidRevenue.toLocaleString('en-US')} ج.م
                   </div>
                 </div>
@@ -193,7 +206,7 @@ export const CloseMonthModal: React.FC<CloseMonthModalProps> = ({
                     <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                     <span className="truncate">المعلق ({summary.pendingCount})</span>
                   </div>
-                  <div className="text-xs sm:text-sm font-bold text-amber-700 font-mono tabular-nums">
+                  <div className="text-xs font-bold text-amber-700 font-mono tabular-nums">
                     {summary.pendingRevenue.toLocaleString('en-US')} ج.م
                   </div>
                 </div>
@@ -207,11 +220,10 @@ export const CloseMonthModal: React.FC<CloseMonthModalProps> = ({
               </label>
               <input
                 type="text"
-                required
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="مثال: تقفيل حساب شهر أكتوبر 2026"
-                className="w-full px-3 py-2 text-xs sm:text-sm bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 text-slate-900"
+                className="w-full px-3 py-1.5 text-xs sm:text-sm bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 text-slate-900"
               />
             </div>
 
@@ -225,13 +237,13 @@ export const CloseMonthModal: React.FC<CloseMonthModalProps> = ({
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="أي ملاحظات حول تسوية الحسابات عند التقفيل..."
-                className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 text-slate-900"
+                className="w-full px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 text-slate-900"
               />
             </div>
           </div>
 
           {/* Pinned Footer Actions - Always visible on mobile */}
-          <div className="px-3.5 sm:px-4 py-2.5 sm:py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2 shrink-0">
+          <div className="px-3 sm:px-4 py-2.5 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2 shrink-0">
             <button
               type="button"
               onClick={onClose}
@@ -241,7 +253,8 @@ export const CloseMonthModal: React.FC<CloseMonthModalProps> = ({
               إلغاء
             </button>
             <button
-              type="submit"
+              type="button"
+              onClick={executeCloseMonth}
               disabled={isSubmitting || openSessions.length === 0}
               className="flex-1 sm:flex-initial justify-center px-4 py-2 rounded-xl text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 disabled:opacity-50 shadow-sm transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
             >

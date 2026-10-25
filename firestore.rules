@@ -154,17 +154,17 @@ service cloud.firestore {
       allow create: if isValidSession(request.resource.data) && request.resource.data.id == sessionId;
       allow update: if isValidSession(request.resource.data) &&
         request.resource.data.id == resource.data.id &&
-        request.resource.data.createdAt == resource.data.createdAt &&
         (
           // Action 1: Fast paymentStatus toggle
           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['paymentStatus']) ||
           // Action 2: Archive / Unarchive stamp during monthly closing or reopening
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['archiveId', 'archiveLabel']) ||
-          // Action 3: Full session edit from SessionModal or reset
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['archiveId', 'archiveLabel', 'createdAt']) ||
+          // Action 3: Full session edit from SessionModal, archive batch, or reset
           request.resource.data.diff(resource.data).affectedKeys().hasOnly([
             'clientName', 'clientPhone', 'condition', 'notes',
             'attendanceDate', 'attendanceTime', 'basePrice', 'totalPrice',
-            'priceDetails', 'paymentStatus', 'paymentMethod', 'archiveId', 'archiveLabel'
+            'priceDetails', 'paymentStatus', 'paymentMethod', 'createdAt',
+            'archiveId', 'archiveLabel'
           ])
         );
       allow delete: if true;

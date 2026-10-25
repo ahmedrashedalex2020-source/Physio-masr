@@ -406,12 +406,23 @@ export default function App() {
 
   const handleManualSync = async () => {
     setSyncStatus('syncing');
-    showToast('جارٍ التحقق من مزامنة قاعدة البيانات السحابية (Firestore)...', 'info');
+    showToast('جارٍ تحديث البيانات ومسح الكاش القديم من الموبايل...', 'info');
     try {
+      if ('caches' in window) {
+        const keys = await window.caches.keys();
+        await Promise.all(keys.map((k) => window.caches.delete(k)));
+      }
+      if ('serviceWorker' in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map((r) => r.update().catch(() => {})));
+      }
       const res = await StorageService.fetchRemoteData();
       if (res) {
+        setSessions(StorageService.getSessions());
+        setClients(StorageService.getClients());
+        setArchives(StorageService.getArchives());
         setSyncStatus('synced');
-        showToast('قاعدة البيانات متزامنة ومحدثة بالكامل بين جميع الأجهزة', 'success');
+        showToast('تم تحديث نسخة التطبيق ومزامنة قاعدة البيانات السحابية بنجاح', 'success');
       } else {
         setSyncStatus('offline');
         showToast('تعذر الوصول إلى قاعدة البيانات السحابية. تحقق من الإنترنت.', 'error');
