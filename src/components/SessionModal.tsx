@@ -1,15 +1,27 @@
 import React, { useState, useEffect } from 'react';
-import { X, Calendar, Clock, DollarSign, User, Phone, FileText, AlertCircle, Check } from 'lucide-react';
+import { X, Phone, AlertCircle, Check } from 'lucide-react';
 import { SessionRecord, PaymentStatus, PaymentMethod, ClientProfile } from '../types';
 
 interface SessionModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (sessionData: any) => Promise<{ success: boolean; error?: string }> | { success: boolean; error?: string };
+  onSave: (
+    sessionData: any
+  ) => Promise<{ success: boolean; error?: string }> | { success: boolean; error?: string };
   initialData?: SessionRecord | null;
   existingClients: ClientProfile[];
   defaultClient?: { name: string; phone: string; condition: string } | null;
 }
+
+const STANDARD_CONDITIONS = [
+  'تأهيل خشونة الركبة والمفاصل',
+  'علاج طبيعي للأطفال وتأهيل الحركة',
+  'تأهيل العمود الفقري والانزلاق الغضروفي',
+  'علاج طبيعي للإصابات الرياضية',
+  'تأهيل ما بعد الكسور والعمليات الجراحية',
+  'تأهيل الشلل النصفي وإصابات الأعصاب',
+  'علاج طبيعي للعصب السابع والتهاب الأعصاب',
+];
 
 export const SessionModal: React.FC<SessionModalProps> = ({
   isOpen,
@@ -23,10 +35,13 @@ export const SessionModal: React.FC<SessionModalProps> = ({
   const [clientName, setClientName] = useState('');
   const [clientPhone, setClientPhone] = useState('');
   const [condition, setCondition] = useState('تأهيل خشونة الركبة والمفاصل');
+  const [isCustomCondition, setIsCustomCondition] = useState(false);
+  const [customCondition, setCustomCondition] = useState('');
   const [notes, setNotes] = useState('');
   const [attendanceDate, setAttendanceDate] = useState('');
   const [attendanceTime, setAttendanceTime] = useState('10:00');
   const [basePrice, setBasePrice] = useState(300);
+  const [extraPrice, setExtraPrice] = useState(0);
   const [totalPrice, setTotalPrice] = useState(300);
   const [priceDetails, setPriceDetails] = useState('أساسي: 300 جنيه');
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('pending');
@@ -36,24 +51,48 @@ export const SessionModal: React.FC<SessionModalProps> = ({
   useEffect(() => {
     if (initialData) {
       setClientName(initialData.clientName);
-      setClientPhone(initialData.clientPhone || '');
-      setCondition(initialData.condition);
+      setClientPhone(
+        initialData.clientPhone === 'بدون هاتف' ? '' : initialData.clientPhone || ''
+      );
+      const cond = initialData.condition || 'تأهيل خشونة الركبة والمفاصل';
+      if (STANDARD_CONDITIONS.includes(cond)) {
+        setCondition(cond);
+        setIsCustomCondition(false);
+        setCustomCondition('');
+      } else {
+        setCondition('__custom__');
+        setIsCustomCondition(true);
+        setCustomCondition(cond);
+      }
       setNotes(initialData.notes || '');
       setAttendanceDate(initialData.attendanceDate);
       setAttendanceTime(initialData.attendanceTime || '10:00');
-      setBasePrice(initialData.basePrice || 300);
-      setTotalPrice(initialData.totalPrice || 300);
-      setPriceDetails(initialData.priceDetails || 'أساسي: 300 جنيه');
+      const bp = Number(initialData.basePrice) || 300;
+      const tp = Number(initialData.totalPrice) || bp;
+      setBasePrice(bp);
+      setExtraPrice(Math.max(0, tp - bp));
+      setTotalPrice(tp);
+      setPriceDetails(initialData.priceDetails || `أساسي: ${tp} جنيه`);
       setPaymentStatus(initialData.paymentStatus || 'pending');
       setPaymentMethod(initialData.paymentMethod || 'cash');
     } else if (defaultClient) {
       setClientName(defaultClient.name);
-      setClientPhone(defaultClient.phone || '');
-      setCondition(defaultClient.condition || 'تأهيل خشونة الركبة والمفاصل');
+      setClientPhone(defaultClient.phone === 'بدون هاتف' ? '' : defaultClient.phone || '');
+      const cond = defaultClient.condition || 'تأهيل خشونة الركبة والمفاصل';
+      if (STANDARD_CONDITIONS.includes(cond)) {
+        setCondition(cond);
+        setIsCustomCondition(false);
+        setCustomCondition('');
+      } else {
+        setCondition('__custom__');
+        setIsCustomCondition(true);
+        setCustomCondition(cond);
+      }
       setNotes('');
       setAttendanceDate(new Date().toISOString().split('T')[0]);
       setAttendanceTime('10:00');
       setBasePrice(300);
+      setExtraPrice(0);
       setTotalPrice(300);
       setPriceDetails('أساسي: 300 جنيه');
       setPaymentStatus('pending');
@@ -62,10 +101,13 @@ export const SessionModal: React.FC<SessionModalProps> = ({
       setClientName('');
       setClientPhone('');
       setCondition('تأهيل خشونة الركبة والمفاصل');
+      setIsCustomCondition(false);
+      setCustomCondition('');
       setNotes('');
       setAttendanceDate(new Date().toISOString().split('T')[0]);
       setAttendanceTime('10:00');
       setBasePrice(300);
+      setExtraPrice(0);
       setTotalPrice(300);
       setPriceDetails('أساسي: 300 جنيه');
       setPaymentStatus('pending');
@@ -82,8 +124,29 @@ export const SessionModal: React.FC<SessionModalProps> = ({
     if (found) {
       setClientPhone(found.phone === 'بدون هاتف' ? '' : found.phone);
       if (found.primaryCondition) {
-        setCondition(found.primaryCondition);
+        if (STANDARD_CONDITIONS.includes(found.primaryCondition)) {
+          setCondition(found.primaryCondition);
+          setIsCustomCondition(false);
+        } else {
+          setCondition('__custom__');
+          setIsCustomCondition(true);
+          setCustomCondition(found.primaryCondition);
+        }
       }
+    }
+  };
+
+  const updatePriceBreakdown = (newBase: number, newExtra: number) => {
+    const cleanBase = Math.max(0, newBase);
+    const cleanExtra = Math.max(0, newExtra);
+    const sum = cleanBase + cleanExtra;
+    setBasePrice(cleanBase);
+    setExtraPrice(cleanExtra);
+    setTotalPrice(sum);
+    if (cleanExtra > 0) {
+      setPriceDetails(`أساسي: ${cleanBase} + إضافي: ${cleanExtra} جنيه`);
+    } else {
+      setPriceDetails(`أساسي: ${cleanBase} جنيه`);
     }
   };
 
@@ -98,6 +161,12 @@ export const SessionModal: React.FC<SessionModalProps> = ({
       return;
     }
 
+    const finalCondition = isCustomCondition ? customCondition.trim() : condition;
+    if (!finalCondition) {
+      setErrorMessage('يرجى تحديد أو كتابة نوع الحالة / التشخيص');
+      return;
+    }
+
     setIsSubmitting(true);
     setErrorMessage('');
 
@@ -105,13 +174,13 @@ export const SessionModal: React.FC<SessionModalProps> = ({
       ...(initialData ? { id: initialData.id, createdAt: initialData.createdAt } : {}),
       clientName: clientName.trim(),
       clientPhone: clientPhone.trim() ? clientPhone.trim() : 'بدون هاتف',
-      condition,
+      condition: finalCondition,
       notes: notes.trim() || undefined,
       attendanceDate,
       attendanceTime: attendanceTime || '10:00',
-      basePrice: Number(basePrice) || 300,
-      totalPrice: Number(totalPrice) || 300,
-      priceDetails: priceDetails || `أساسي: ${basePrice} جنيه`,
+      basePrice: Number(basePrice) >= 0 ? Number(basePrice) : 300,
+      totalPrice: Number(totalPrice) >= 0 ? Number(totalPrice) : 300,
+      priceDetails: priceDetails || `أساسي: ${totalPrice} جنيه`,
       paymentStatus,
       paymentMethod,
     };
@@ -140,7 +209,7 @@ export const SessionModal: React.FC<SessionModalProps> = ({
               {initialData ? 'تعديل بيانات الجلسة' : 'إضافة جلسة جديدة'}
             </h3>
             <p className="text-xs text-slate-500 mt-0.5">
-              إدخال وتحديث البيانات في قاعدة بيانات المركز مع منع التكرار
+              إدخال وتحديث البيانات مباشرة في قاعدة البيانات السحابية مع منع التكرار
             </p>
           </div>
           <button
@@ -176,8 +245,8 @@ export const SessionModal: React.FC<SessionModalProps> = ({
               />
               {/* Quick Suggestions */}
               <div className="flex flex-wrap gap-1.5 items-center">
-                <span className="text-[11px] text-slate-400">مرضى مسجلون:</span>
-                {existingClients.slice(0, 5).map((client) => (
+                <span className="text-[11px] text-slate-400">اختيار سريع:</span>
+                {existingClients.slice(0, 6).map((client) => (
                   <button
                     key={client.id}
                     type="button"
@@ -204,7 +273,7 @@ export const SessionModal: React.FC<SessionModalProps> = ({
                 onChange={(e) => setClientPhone(e.target.value)}
                 placeholder="مثال: 01044241787"
                 dir="ltr"
-                className="w-full pl-3 pr-9 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 text-slate-900 font-mono text-right"
+                className="w-full pl-3 pr-9 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 text-slate-900 font-mono tabular-nums text-right"
               />
             </div>
           </div>
@@ -215,19 +284,36 @@ export const SessionModal: React.FC<SessionModalProps> = ({
               نوع الحالة / الإصابة <span className="text-rose-500">*</span>
             </label>
             <select
-              value={condition}
-              onChange={(e) => setCondition(e.target.value)}
+              value={isCustomCondition ? '__custom__' : condition}
+              onChange={(e) => {
+                if (e.target.value === '__custom__') {
+                  setIsCustomCondition(true);
+                  setCondition('__custom__');
+                } else {
+                  setIsCustomCondition(false);
+                  setCondition(e.target.value);
+                }
+              }}
               className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 text-slate-900"
             >
-              <option value="تأهيل خشونة الركبة والمفاصل">تأهيل خشونة الركبة والمفاصل</option>
-              <option value="علاج طبيعي للأطفال وتأهيل الحركة">
-                علاج طبيعي للأطفال وتأهيل الحركة
-              </option>
-              <option value="تأهيل العمود الفقري والانزلاق الغضروفي">
-                تأهيل العمود الفقري والانزلاق الغضروفي
-              </option>
-              <option value="علاج طبيعي للإصابات الرياضية">علاج طبيعي للإصابات الرياضية</option>
+              {STANDARD_CONDITIONS.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+              <option value="__custom__">حالة أخرى (كتابة تشخيص مخصص)...</option>
             </select>
+
+            {isCustomCondition && (
+              <input
+                type="text"
+                value={customCondition}
+                onChange={(e) => setCustomCondition(e.target.value)}
+                placeholder="اكتب نوع الحالة أو التشخيص المخصص..."
+                required
+                className="mt-2 w-full px-3 py-2 text-sm bg-white border border-teal-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/20 text-slate-900"
+              />
+            )}
           </div>
 
           {/* Notes / Special details */}
@@ -255,7 +341,7 @@ export const SessionModal: React.FC<SessionModalProps> = ({
                 value={attendanceDate}
                 onChange={(e) => setAttendanceDate(e.target.value)}
                 required
-                className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 text-slate-900"
+                className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 text-slate-900 font-mono tabular-nums"
               />
             </div>
             <div>
@@ -267,27 +353,35 @@ export const SessionModal: React.FC<SessionModalProps> = ({
                 value={attendanceTime}
                 onChange={(e) => setAttendanceTime(e.target.value)}
                 required
-                className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 text-slate-900"
+                className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 text-slate-900 font-mono tabular-nums"
               />
             </div>
           </div>
 
-          {/* Pricing */}
-          <div className="grid grid-cols-2 gap-3">
+          {/* Pricing Breakdown */}
+          <div className="grid grid-cols-3 gap-2.5">
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                المبلغ الإجمالي (جنيه)
+                سعر الجلسة الأساسي
               </label>
               <input
                 type="number"
-                value={totalPrice}
-                onChange={(e) => {
-                  const val = Number(e.target.value);
-                  setTotalPrice(val);
-                  setBasePrice(val);
-                  setPriceDetails(`أساسي: ${val} جنيه`);
-                }}
-                className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 text-slate-900 font-mono"
+                min={0}
+                value={basePrice}
+                onChange={(e) => updatePriceBreakdown(Number(e.target.value), extraPrice)}
+                className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/20 text-slate-900 font-mono tabular-nums"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                إضافات / مستلزمات
+              </label>
+              <input
+                type="number"
+                min={0}
+                value={extraPrice}
+                onChange={(e) => updatePriceBreakdown(basePrice, Number(e.target.value))}
+                className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/20 text-slate-900 font-mono tabular-nums"
               />
             </div>
             <div>
@@ -297,13 +391,20 @@ export const SessionModal: React.FC<SessionModalProps> = ({
               <select
                 value={paymentMethod}
                 onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
-                className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 text-slate-900"
+                className="w-full px-2.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/20 text-slate-900"
               >
                 <option value="cash">نقدي</option>
                 <option value="bank_transfer">تحويل بنكي</option>
                 <option value="credit_card">بطاقة ائتمان</option>
               </select>
             </div>
+          </div>
+
+          <div className="flex items-center justify-between px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs">
+            <span className="text-slate-600">{priceDetails}</span>
+            <span className="font-bold text-teal-800 font-mono tabular-nums">
+              الإجمالي النهائي: {totalPrice} جنيه
+            </span>
           </div>
 
           {/* Payment Status */}

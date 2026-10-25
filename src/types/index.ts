@@ -5,17 +5,19 @@ export type PaymentMethod = 'cash' | 'bank_transfer' | 'credit_card';
 export interface SessionRecord {
   id: string;
   clientName: string;
-  clientPhone: string; // Phone number or "بدون هاتف"
-  condition: string; // e.g. "علاج طبيعي للأطفال وتأهيل الحركة" or "تأهيل خشونة الركبة والمفاصل"
-  notes?: string; // e.g. "جلسة شد فقرات قطنية وتمرينات تقوية"
+  clientPhone: string;
+  condition: string;
+  notes?: string;
   attendanceDate: string; // YYYY-MM-DD
   attendanceTime: string; // HH:mm
   basePrice: number;
   totalPrice: number;
-  priceDetails: string; // e.g. "أساسي: 300 جنيه"
+  priceDetails: string;
   paymentStatus: PaymentStatus;
   paymentMethod: PaymentMethod;
   createdAt: string;
+  archiveId?: string;
+  archiveLabel?: string;
 }
 
 export interface ClientProfile {
@@ -28,12 +30,35 @@ export interface ClientProfile {
   lastVisitDate: string;
 }
 
+export interface MonthlyArchive {
+  id: string;
+  title: string;
+  closedAt: string;
+  startDate: string;
+  endDate: string;
+  totalSessions: number;
+  totalRevenue: number;
+  paidRevenue: number;
+  pendingRevenue: number;
+  paidCount: number;
+  pendingCount: number;
+  notes?: string;
+}
+
 export interface FilterOptions {
   searchQuery: string;
   condition: string;
-  paymentStatus: string;
+  paymentStatus: PaymentStatus | '';
   paymentMethod: string;
   startDate: string;
   endDate: string;
   clientName: string;
+  /**
+   * Controls which monthly period or archive is active:
+   * - 'current': Only currently open (unarchived) sessions for the active new month
+   * - 'all': All sessions (current + all archived months)
+   * - 'archive:<archiveId>': Specific closed monthly archive
+   * - 'month:<YYYY-MM>': Specific calendar month
+   */
+  periodFilter: string;
 }

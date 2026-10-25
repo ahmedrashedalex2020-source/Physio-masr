@@ -2,82 +2,32 @@
   "entities": {
     "SessionRecord": {
       "title": "SessionRecord",
-      "description": "Represents a physical therapy clinic session record including attendance, condition, and payment details.",
+      "description": "A physiotherapy clinic session record synchronized across desktop and mobile devices.",
       "type": "object",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the session record.",
-          "minLength": 1,
-          "maxLength": 128,
-          "pattern": "^[a-zA-Z0-9_\\-]+$"
-        },
-        "clientName": {
-          "type": "string",
-          "description": "Full name of the patient/client.",
-          "minLength": 1,
-          "maxLength": 200
-        },
-        "clientPhone": {
-          "type": "string",
-          "description": "Phone number of the patient or placeholder.",
-          "minLength": 1,
-          "maxLength": 50
-        },
-        "condition": {
-          "type": "string",
-          "description": "Medical or physical therapy condition/diagnosis.",
-          "minLength": 1,
-          "maxLength": 300
-        },
-        "notes": {
-          "type": "string",
-          "description": "Optional clinical or payment notes for the session.",
-          "minLength": 0,
-          "maxLength": 1000
-        },
-        "attendanceDate": {
-          "type": "string",
-          "description": "Date of attendance in YYYY-MM-DD format.",
-          "minLength": 1,
-          "maxLength": 20
-        },
-        "attendanceTime": {
-          "type": "string",
-          "description": "Time of attendance in HH:mm format.",
-          "minLength": 1,
-          "maxLength": 20
-        },
-        "basePrice": {
-          "type": "number",
-          "description": "Base session price in EGP."
-        },
-        "totalPrice": {
-          "type": "number",
-          "description": "Total final price in EGP."
-        },
-        "priceDetails": {
-          "type": "string",
-          "description": "Formatted breakdown of the session price.",
-          "minLength": 0,
-          "maxLength": 200
-        },
+        "id": { "type": "string", "description": "Unique session identifier" },
+        "clientName": { "type": "string", "description": "Full name of the patient" },
+        "clientPhone": { "type": "string", "description": "Phone number of the patient" },
+        "condition": { "type": "string", "description": "Medical condition or diagnosis" },
+        "notes": { "type": "string", "description": "Clinical or payment notes" },
+        "attendanceDate": { "type": "string", "description": "Session date in YYYY-MM-DD format" },
+        "attendanceTime": { "type": "string", "description": "Session time in HH:mm format" },
+        "basePrice": { "type": "number", "description": "Base session price in EGP" },
+        "totalPrice": { "type": "number", "description": "Total session price in EGP" },
+        "priceDetails": { "type": "string", "description": "Text breakdown of the price" },
         "paymentStatus": {
           "type": "string",
-          "description": "Payment status of the session.",
-          "enum": ["pending", "paid", "cancelled"]
+          "enum": ["pending", "paid", "cancelled"],
+          "description": "Payment status of the session"
         },
         "paymentMethod": {
           "type": "string",
-          "description": "Payment method used for the session.",
-          "enum": ["cash", "bank_transfer", "credit_card"]
+          "enum": ["cash", "bank_transfer", "credit_card"],
+          "description": "Method of payment"
         },
-        "createdAt": {
-          "type": "string",
-          "description": "ISO timestamp when the session was created.",
-          "minLength": 1,
-          "maxLength": 64
-        }
+        "createdAt": { "type": "string", "description": "ISO timestamp when record was created" },
+        "archiveId": { "type": "string", "description": "Optional ID of the closed monthly archive this session belongs to" },
+        "archiveLabel": { "type": "string", "description": "Optional display title of the closed monthly archive" }
       },
       "required": [
         "id",
@@ -96,52 +46,16 @@
     },
     "ClientProfile": {
       "title": "ClientProfile",
-      "description": "Represents a patient/client profile in the physical therapy clinic directory.",
+      "description": "A registered physiotherapy patient profile.",
       "type": "object",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the client profile.",
-          "minLength": 1,
-          "maxLength": 128,
-          "pattern": "^[a-zA-Z0-9_\\-]+$"
-        },
-        "name": {
-          "type": "string",
-          "description": "Full name of the client.",
-          "minLength": 1,
-          "maxLength": 200
-        },
-        "phone": {
-          "type": "string",
-          "description": "Phone number of the client.",
-          "minLength": 1,
-          "maxLength": 50
-        },
-        "primaryCondition": {
-          "type": "string",
-          "description": "Primary physical therapy condition of the client.",
-          "minLength": 1,
-          "maxLength": 300
-        },
-        "notes": {
-          "type": "string",
-          "description": "Optional clinical notes for the client.",
-          "minLength": 0,
-          "maxLength": 1000
-        },
-        "firstVisitDate": {
-          "type": "string",
-          "description": "Date of first clinic visit in YYYY-MM-DD format.",
-          "minLength": 1,
-          "maxLength": 20
-        },
-        "lastVisitDate": {
-          "type": "string",
-          "description": "Date of most recent clinic visit in YYYY-MM-DD format.",
-          "minLength": 1,
-          "maxLength": 20
-        }
+        "id": { "type": "string", "description": "Unique client identifier" },
+        "name": { "type": "string", "description": "Full name of the patient" },
+        "phone": { "type": "string", "description": "Phone number of the patient" },
+        "primaryCondition": { "type": "string", "description": "Primary medical condition" },
+        "notes": { "type": "string", "description": "Additional medical notes" },
+        "firstVisitDate": { "type": "string", "description": "Date of first visit YYYY-MM-DD" },
+        "lastVisitDate": { "type": "string", "description": "Date of most recent visit YYYY-MM-DD" }
       },
       "required": [
         "id",
@@ -152,48 +66,67 @@
         "lastVisitDate"
       ]
     },
-    "SyncMeta": {
-      "title": "SyncMeta",
-      "description": "Tracks clinic database initialization and synchronization metadata.",
+    "MonthlyArchive": {
+      "title": "MonthlyArchive",
+      "description": "A closed and archived monthly financial & session summary record.",
       "type": "object",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Metadata document identifier.",
-          "minLength": 1,
-          "maxLength": 128,
-          "pattern": "^[a-zA-Z0-9_\\-]+$"
-        },
-        "seeded": {
-          "type": "boolean",
-          "description": "Whether initial clinic records have been seeded."
-        },
-        "updatedAt": {
-          "type": "string",
-          "description": "ISO timestamp of last metadata update.",
-          "minLength": 1,
-          "maxLength": 64
-        },
-        "totalSessions": {
-          "type": "number",
-          "description": "Count of seeded sessions."
-        }
+        "id": { "type": "string", "description": "Unique archive identifier" },
+        "title": { "type": "string", "description": "Display title of the closed month (e.g. حساب شهر أكتوبر 2026)" },
+        "closedAt": { "type": "string", "description": "ISO timestamp when the month was closed and archived" },
+        "startDate": { "type": "string", "description": "Earliest session date in this archived period" },
+        "endDate": { "type": "string", "description": "Latest session date in this archived period" },
+        "totalSessions": { "type": "number", "description": "Total number of sessions archived in this period" },
+        "totalRevenue": { "type": "number", "description": "Total revenue in EGP for this archived period" },
+        "paidRevenue": { "type": "number", "description": "Total collected/paid amount in EGP" },
+        "pendingRevenue": { "type": "number", "description": "Total pending/unpaid amount in EGP" },
+        "paidCount": { "type": "number", "description": "Count of paid sessions" },
+        "pendingCount": { "type": "number", "description": "Count of pending sessions" },
+        "notes": { "type": "string", "description": "Optional closing notes" }
       },
-      "required": ["id", "seeded", "updatedAt", "totalSessions"]
+      "required": [
+        "id",
+        "title",
+        "closedAt",
+        "startDate",
+        "endDate",
+        "totalSessions",
+        "totalRevenue",
+        "paidRevenue",
+        "pendingRevenue",
+        "paidCount",
+        "pendingCount"
+      ]
+    },
+    "ClinicSyncMeta": {
+      "title": "ClinicSyncMeta",
+      "description": "Metadata document tracking initial seeding status.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "seeded": { "type": "boolean" },
+        "updatedAt": { "type": "string" },
+        "totalSessions": { "type": "number" }
+      },
+      "required": ["id", "seeded", "updatedAt"]
     }
   },
   "firestore": {
     "/sessions/{sessionId}": {
-      "schema": "SessionRecord",
-      "description": "Collection of physical therapy clinic sessions synchronized across desktop and mobile devices."
+      "schema": { "$ref": "#/entities/SessionRecord" },
+      "description": "Collection of all physiotherapy clinic sessions"
     },
     "/clients/{clientId}": {
-      "schema": "ClientProfile",
-      "description": "Collection of patient profiles synchronized across desktop and mobile devices."
+      "schema": { "$ref": "#/entities/ClientProfile" },
+      "description": "Collection of all registered clinic patients"
+    },
+    "/monthly_archives/{archiveId}": {
+      "schema": { "$ref": "#/entities/MonthlyArchive" },
+      "description": "Collection of closed and archived monthly financial & session summaries"
     },
     "/sync_meta/{metaId}": {
-      "schema": "SyncMeta",
-      "description": "Collection storing clinic initialization and seed status metadata."
+      "schema": { "$ref": "#/entities/ClinicSyncMeta" },
+      "description": "Collection storing clinic database seeding and sync metadata"
     }
   }
 }

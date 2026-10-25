@@ -4,22 +4,36 @@ import { StatsCards } from './components/StatsCards';
 import { FiltersBar } from './components/FiltersBar';
 import { SessionsTable } from './components/SessionsTable';
 import { ClientsDirectory } from './components/ClientsDirectory';
+import { FinancialsAndDiagnosticsView } from './components/FinancialsAndDiagnosticsView';
 import { SessionModal } from './components/SessionModal';
 import { DeleteConfirmModal } from './components/DeleteConfirmModal';
+import { ResetConfirmModal } from './components/ResetConfirmModal';
+import { CloseMonthModal } from './components/CloseMonthModal';
 import { ExportModal } from './components/ExportModal';
 import { InstallPromptModal } from './components/InstallPromptModal';
 import { LoginScreen } from './components/LoginScreen';
 import { ClinicGameView } from './components/ClinicGameView';
 import { StorageService, normalizeArabic } from './services/storage';
 import { AuthService, User } from './services/auth';
-import { SessionRecord, ClientProfile, FilterOptions } from './types';
-import { CheckCircle2, AlertCircle, Info, ShieldCheck, Database, Smartphone, RefreshCw } from 'lucide-react';
+import { SessionRecord, ClientProfile, MonthlyArchive, FilterOptions } from './types';
+import {
+  CheckCircle2,
+  AlertCircle,
+  Info,
+  ShieldCheck,
+  Database,
+  Smartphone,
+  RefreshCw,
+} from 'lucide-react';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(() => AuthService.getCurrentUser());
   const [sessions, setSessions] = useState<SessionRecord[]>([]);
   const [clients, setClients] = useState<ClientProfile[]>([]);
-  const [activeTab, setActiveTab] = useState<'sessions' | 'clients' | 'financials' | 'game'>('sessions');
+  const [archives, setArchives] = useState<MonthlyArchive[]>([]);
+  const [activeTab, setActiveTab] = useState<'sessions' | 'clients' | 'financials' | 'game'>(
+    'sessions'
+  );
 
   // Modals state
   const [isSessionModalOpen, setIsSessionModalOpen] = useState(false);
@@ -32,6 +46,8 @@ export default function App() {
 
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [sessionToDelete, setSessionToDelete] = useState<SessionRecord | null>(null);
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const [isCloseMonthModalOpen, setIsCloseMonthModalOpen] = useState(false);
 
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
@@ -51,7 +67,7 @@ export default function App() {
     }, 4500);
   };
 
-  // Capture PWA Install event for Android Chrome & detect mobile
+  // Capture PWA Install event for Android Chrome
   useEffect(() => {
     const isRunningStandalone =
       window.matchMedia('(display-mode: standalone)').matches ||
@@ -61,40 +77,15 @@ export default function App() {
     const handleBeforeInstall = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e);
-      // Auto open install sheet on mobile if prompted
-      if (!isRunningStandalone) {
-        setIsInstallModalOpen(true);
-      }
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstall);
-
-    // Auto prompt mobile users after 1.5 seconds if not yet installed and not dismissed in this session
-    const isMobile =
-      /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
-      window.innerWidth < 768;
-
-    try {
-      const dismissed = sessionStorage.getItem('pwa_prompt_dismissed');
-      if (isMobile && !isRunningStandalone && !dismissed) {
-        const timer = setTimeout(() => {
-          setIsInstallModalOpen(true);
-        }, 1500);
-        return () => {
-          clearTimeout(timer);
-          window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
-        };
-      }
-    } catch {
-      // ignore
-    }
-
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
     };
   }, []);
 
-  // Filters State
+  // Filters State (periodFilter defaults to 'current' so the dashboard tracks the active open month)
   const [filters, setFilters] = useState<FilterOptions>({
     searchQuery: '',
     condition: '',
@@ -103,6 +94,7 @@ export default function App() {
     startDate: '',
     endDate: '',
     clientName: '',
+    periodFilter: 'current',
   });
 
   // Central Server Cloud Sync Status
@@ -112,10 +104,12 @@ export default function App() {
   useEffect(() => {
     setSessions(StorageService.getSessions());
     setClients(StorageService.getClients());
+    setArchives(StorageService.getArchives());
 
-    const unsubscribeData = StorageService.subscribe((newSessions, newClients) => {
+    const unsubscribeData = StorageService.subscribe((newSessions, newClients, newArchives) => {
       setSessions(newSessions);
       setClients(newClients);
+      setArchives(newArchives);
     });
 
     const unsubscribeStatus = StorageService.subscribeStatus((status) => {
@@ -140,10 +134,46 @@ export default function App() {
     };
   }, []);
 
-  // Filtered Sessions
+  // Currently open (unarchived) sessions belonging to the active month
+  const openSessions = useMemo(() => {
+    return sessions.filter((s) => !s.archiveId);
+  }, [sessions]);
+
+  // Distinct calendar months (YYYY-MM) across all sessions for quick historical month lookup
+  const availableCalendarMonths = useMemo(() => {
+    const set = new Set<string>();
+    sessions.forEach((s) => {
+      if (s.attendanceDate && s.attendanceDate.length >= 7) {
+        set.add(s.attendanceDate.slice(0, 7));
+      }
+    });
+    return Array.from(set).sort((a, b) => b.localeCompare(a));
+  }, [sessions]);
+
+  // Sessions scoped to the selected Monthly Period / Archive (drives StatsCards and base table period)
+  const periodScopedSessions = useMemo(() => {
+    const pf = filters.periodFilter || 'current';
+    if (pf === 'current') {
+      return sessions.filter((s) => !s.archiveId);
+    }
+    if (pf === 'all') {
+      return sessions;
+    }
+    if (pf.startsWith('archive:')) {
+      const archId = pf.replace('archive:', '');
+      return sessions.filter((s) => s.archiveId === archId);
+    }
+    if (pf.startsWith('month:')) {
+      const ym = pf.replace('month:', '');
+      return sessions.filter((s) => (s.attendanceDate || '').startsWith(ym));
+    }
+    return sessions;
+  }, [sessions, filters.periodFilter]);
+
+  // Filtered Sessions (applies search, condition, client, status, method, and startDate/endDate on top of periodScopedSessions)
   const filteredSessions = useMemo(() => {
-    return sessions.filter((session) => {
-      // Search query (name, phone, notes)
+    return periodScopedSessions.filter((session) => {
+      // Search query (name, phone, notes, condition)
       if (filters.searchQuery) {
         const queryNorm = normalizeArabic(filters.searchQuery);
         const nameNorm = normalizeArabic(session.clientName);
@@ -166,7 +196,10 @@ export default function App() {
       }
 
       // Client name filter
-      if (filters.clientName && session.clientName !== filters.clientName) {
+      if (
+        filters.clientName &&
+        normalizeArabic(session.clientName) !== normalizeArabic(filters.clientName)
+      ) {
         return false;
       }
 
@@ -180,9 +213,19 @@ export default function App() {
         return false;
       }
 
+      // Start date filter
+      if (filters.startDate && session.attendanceDate < filters.startDate) {
+        return false;
+      }
+
+      // End date filter
+      if (filters.endDate && session.attendanceDate > filters.endDate) {
+        return false;
+      }
+
       return true;
     });
-  }, [sessions, filters]);
+  }, [periodScopedSessions, filters]);
 
   // Extract distinct conditions and client names for filter dropdowns
   const uniqueConditions = useMemo(() => {
@@ -250,9 +293,10 @@ export default function App() {
     }
   };
 
-  const handleSaveSession = async (sessionData: any): Promise<{ success: boolean; error?: string }> => {
+  const handleSaveSession = async (
+    sessionData: any
+  ): Promise<{ success: boolean; error?: string }> => {
     if (editingSession) {
-      // Update existing directly in database
       const result = await StorageService.updateSession(sessionData);
       if (result.success) {
         setSessions(StorageService.getSessions());
@@ -263,12 +307,13 @@ export default function App() {
         return { success: false, error: result.error };
       }
     } else {
-      // Add new directly to database
       const result = await StorageService.addSession(sessionData);
       if (result.success && result.session) {
         setSessions(StorageService.getSessions());
         setClients(StorageService.getClients());
-        showToast(`تمت إضافة الجلسة إلى قاعدة البيانات المركزية بنجاح 🟢`);
+        // Ensure user is viewing the current open month when adding a new session
+        setFilters((prev) => ({ ...prev, periodFilter: 'current' }));
+        showToast(`تمت إضافة الجلسة إلى حساب الشهر الجاري بنجاح`);
         return { success: true };
       } else {
         return { success: false, error: result.error };
@@ -276,40 +321,104 @@ export default function App() {
     }
   };
 
-  const handleResetDatabase = async () => {
-    if (
-      window.confirm(
-        'هل تريد مسح البيانات وإعادة تحميل السجلات الأصلية الـ 68 من قاعدة البيانات المركزية مع التأكد من عدم وجود أي تكرار؟'
-      )
-    ) {
-      const ok = await StorageService.resetToDefault();
-      if (ok) {
-        setSessions(StorageService.getSessions());
-        setClients(StorageService.getClients());
-        showToast(
-          `تمت استعادة الـ 68 جلسة الأصلية في قاعدة البيانات بنجاح دون أي تكرار (إجمالي 20,400 جنيه)`
-        );
-      } else {
-        showToast('تعذر إعادة ضبط قاعدة البيانات المركزية.', 'error');
-      }
+  const handleConfirmCloseMonth = async (
+    title: string,
+    notes?: string
+  ): Promise<{ success: boolean; error?: string }> => {
+    setSyncStatus('syncing');
+    const res = await StorageService.closeCurrentMonth(title, notes);
+    if (res.success && res.archive) {
+      setSessions(StorageService.getSessions());
+      setArchives(StorageService.getArchives());
+      setFilters((prev) => ({
+        ...prev,
+        periodFilter: 'current',
+        startDate: '',
+        endDate: '',
+      }));
+      setSyncStatus('synced');
+      showToast(
+        `تم تقفيل وأرشفة «${res.archive.title}» بنجاح وبدأ الآن حساب شهر جديد من الصفر!`,
+        'success'
+      );
+      return { success: true };
+    } else {
+      setSyncStatus('offline');
+      return { success: false, error: res.error };
+    }
+  };
+
+  const handleReopenArchive = async (archiveId: string) => {
+    setSyncStatus('syncing');
+    const res = await StorageService.reopenArchive(archiveId);
+    if (res.success) {
+      setSessions(StorageService.getSessions());
+      setArchives(StorageService.getArchives());
+      setFilters((prev) => ({ ...prev, periodFilter: 'current' }));
+      setSyncStatus('synced');
+      showToast('تم إعادة فتح الشهر المؤرشف وإعادة جلساته إلى الحساب الجاري بنجاح', 'info');
+    } else {
+      setSyncStatus('offline');
+      showToast(res.error || 'تعذر إعادة فتح الأرشيف', 'error');
+    }
+  };
+
+  const handleSaveClient = async (
+    clientData: Partial<ClientProfile> & { name: string }
+  ): Promise<{ success: boolean; error?: string }> => {
+    const result = await StorageService.saveClient(clientData);
+    if (result.success) {
+      setClients(StorageService.getClients());
+      showToast(`تم حفظ ملف المريض (${clientData.name}) في قاعدة البيانات بنجاح`);
+      return { success: true };
+    }
+    return { success: false, error: result.error };
+  };
+
+  const handleDeleteClient = async (client: ClientProfile) => {
+    const ok = await StorageService.deleteClient(client.id);
+    if (ok) {
+      setClients(StorageService.getClients());
+      showToast(`تم حذف ملف المريض (${client.name}) من قاعدة البيانات`, 'info');
+    } else {
+      showToast('تعذر حذف ملف المريض.', 'error');
+    }
+  };
+
+  const handleConfirmResetDatabase = async () => {
+    setSyncStatus('syncing');
+    showToast('جارٍ استعادة السجلات الأصلية الـ 68 في قاعدة البيانات السحابية...', 'info');
+    const ok = await StorageService.resetToDefault();
+    if (ok) {
+      setSessions(StorageService.getSessions());
+      setClients(StorageService.getClients());
+      setArchives(StorageService.getArchives());
+      setFilters((prev) => ({ ...prev, periodFilter: 'current' }));
+      setSyncStatus('synced');
+      showToast(
+        'تمت استعادة الـ 68 جلسة الأصلية و17 ملف مريض في قاعدة البيانات السحابية بنجاح (20,400 جنيه)'
+      );
+    } else {
+      setSyncStatus('offline');
+      showToast('تعذر إعادة ضبط قاعدة البيانات السحابية.', 'error');
     }
   };
 
   const handleManualSync = async () => {
     setSyncStatus('syncing');
-    showToast('جارٍ الاتصال بقاعدة البيانات المركزية وتحديث السجلات...', 'info');
+    showToast('جارٍ التحقق من مزامنة قاعدة البيانات السحابية (Firestore)...', 'info');
     try {
       const res = await StorageService.fetchRemoteData();
       if (res) {
         setSyncStatus('synced');
-        showToast('تم الاتصال بقاعدة البيانات بنجاح وتحديث كافة السجلات 🟢', 'success');
+        showToast('قاعدة البيانات متزامنة ومحدثة بالكامل بين جميع الأجهزة', 'success');
       } else {
         setSyncStatus('offline');
-        showToast('تعذر الاتصال بقاعدة البيانات المركزية. تحقق من تشغيل السيرفر والإنترنت.', 'error');
+        showToast('تعذر الوصول إلى قاعدة البيانات السحابية. تحقق من الإنترنت.', 'error');
       }
     } catch {
       setSyncStatus('offline');
-      showToast('خطأ في الاتصال بقاعدة البيانات المركزية.', 'error');
+      showToast('خطأ في الاتصال بقاعدة البيانات السحابية.', 'error');
     }
   };
 
@@ -318,6 +427,17 @@ export default function App() {
       ...prev,
       clientName: clientName,
       searchQuery: '',
+      periodFilter: 'all',
+    }));
+    setActiveTab('sessions');
+  };
+
+  const handleFilterByArchive = (archiveId: string) => {
+    setFilters((prev) => ({
+      ...prev,
+      periodFilter: `archive:${archiveId}`,
+      searchQuery: '',
+      clientName: '',
     }));
     setActiveTab('sessions');
   };
@@ -371,11 +491,11 @@ export default function App() {
         setActiveTab={setActiveTab}
         onOpenAddModal={handleOpenAddSession}
         onOpenExportModal={() => setIsExportModalOpen(true)}
-        onResetDatabase={handleResetDatabase}
+        onResetDatabase={() => setIsResetModalOpen(true)}
         onOpenInstallModal={() => setIsInstallModalOpen(true)}
         currentUser={currentUser}
         onLogout={handleLogout}
-        totalSessions={sessions.length}
+        totalSessions={periodScopedSessions.length}
         totalClients={clients.length}
         syncStatus={syncStatus}
         onManualSync={handleManualSync}
@@ -402,8 +522,8 @@ export default function App() {
               {syncStatus === 'syncing'
                 ? 'جارٍ الاتصال بقاعدة البيانات...'
                 : syncStatus === 'offline'
-                ? 'غير متصل بقاعدة البيانات المركزية ⚠️'
-                : 'متصل مباشرة بقاعدة البيانات 🟢'}
+                ? 'غير متصل بقاعدة البيانات المركزية'
+                : 'متصل مباشرة بقاعدة البيانات السحابية'}
             </span>
           </div>
           <button
@@ -431,16 +551,18 @@ export default function App() {
             {syncStatus === 'offline' ? (
               <Database className="w-4 h-4 text-rose-300 shrink-0" />
             ) : (
-              <Smartphone className="w-4 h-4 text-teal-200 shrink-0 animate-pulse" />
+              <Smartphone className="w-4 h-4 text-teal-200 shrink-0" />
             )}
             <div className="truncate">
-              <span className="font-bold block leading-tight truncate">مركز العلاج الطبيعي والتأهيل</span>
+              <span className="font-bold block leading-tight truncate">
+                مركز العلاج الطبيعي والتأهيل
+              </span>
               <span className="text-[10px] text-teal-100">
                 {syncStatus === 'syncing'
                   ? 'جارٍ الاتصال وتحديث قاعدة البيانات...'
                   : syncStatus === 'offline'
                   ? 'غير متصل بقاعدة البيانات المركزية'
-                  : 'متصل مباشرة بقاعدة البيانات 🟢'}
+                  : 'متصل مباشرة بقاعدة البيانات السحابية'}
               </span>
             </div>
           </div>
@@ -462,7 +584,7 @@ export default function App() {
               onClick={() => setIsInstallModalOpen(true)}
               className="bg-white text-teal-900 font-black px-2.5 py-1.5 rounded-md text-[11px] shadow-xs hover:bg-teal-50 cursor-pointer"
             >
-              تثبيت 📱
+              تثبيت
             </button>
           </div>
         </div>
@@ -470,37 +592,46 @@ export default function App() {
 
       {/* Content Area */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full">
-        {/* KPI Summary Cards */}
-        <StatsCards sessions={sessions} clientsCount={clients.length} />
+        {/* KPI Summary Cards & Dedicated Close Month Control */}
+        <StatsCards
+          sessions={periodScopedSessions}
+          openSessionsCount={openSessions.length}
+          clientsCount={clients.length}
+          periodFilter={filters.periodFilter}
+          archives={archives}
+          onOpenCloseMonthModal={() => setIsCloseMonthModalOpen(true)}
+          onSelectPeriodFilter={(period) =>
+            setFilters((prev) => ({ ...prev, periodFilter: period }))
+          }
+        />
 
         {/* Database Status Notice */}
         <div className="bg-emerald-50/70 border border-emerald-200/80 rounded-xl px-4 py-3 mb-5 flex items-center justify-between text-xs text-emerald-900">
           <div className="flex items-center gap-2">
             <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
             <span>
-              <strong>حالة قاعدة البيانات السحابية (Firebase Firestore):</strong> مزامنة لحظية صامتة وموحدة بنسبة 100% بين الكمبيوتر والموبايل مع حفظ فوري لكافة الإضافات والتعديلات ومنع التكرار.
+              <strong>حالة قاعدة البيانات السحابية (Firebase Firestore):</strong> مزامنة لحظية صامتة وموحدة بنسبة 100% بين الكمبيوتر والموبايل مع حفظ فوري لكافة الإضافات والأرشيف الشهري.
             </span>
           </div>
-          <div className="hidden sm:flex items-center gap-1.5 font-mono text-[11px] text-emerald-700 font-semibold bg-white/70 px-2 py-0.5 rounded border border-emerald-200">
+          <div className="hidden sm:flex items-center gap-1.5 font-mono tabular-nums text-[11px] text-emerald-700 font-semibold">
             <Database className="w-3 h-3" />
             <span>
-              {sessions.length} سجل |{' '}
-              {sessions
-                .reduce((sum, s) => sum + (Number(s.totalPrice) || 0), 0)
-                .toLocaleString('en-US')}{' '}
-              ج.م
+              إجمالي القاعدة: {sessions.length} سجل · {archives.length} أرشيف شهري
             </span>
           </div>
         </div>
 
         {activeTab === 'sessions' ? (
           <div>
-            {/* Filter controls */}
+            {/* Filter controls including Monthly Archive & Calendar Month Switcher */}
             <FiltersBar
               filters={filters}
               setFilters={setFilters}
               conditions={uniqueConditions}
               clientNames={uniqueClientNames}
+              archives={archives}
+              availableCalendarMonths={availableCalendarMonths}
+              openSessionsCount={openSessions.length}
               totalFiltered={filteredSessions.length}
               totalAll={sessions.length}
             />
@@ -508,7 +639,7 @@ export default function App() {
             {/* Main Interactive Table */}
             <SessionsTable
               sessions={filteredSessions}
-              allSessionsCount={sessions.length}
+              allSessionsCount={periodScopedSessions.length}
               onEditSession={handleEditSession}
               onDeleteSession={handleDeleteClick}
               onAddSessionForClient={handleAddSessionForClient}
@@ -522,11 +653,25 @@ export default function App() {
             sessions={sessions}
             onSelectClientToFilter={handleFilterByClient}
             onAddSessionForClient={handleAddSessionForClient}
+            onSaveClient={handleSaveClient}
+            onDeleteClient={handleDeleteClient}
+          />
+        ) : activeTab === 'financials' ? (
+          /* Financial Reports, Monthly Archives & Live Database Diagnostics Tab */
+          <FinancialsAndDiagnosticsView
+            sessions={periodScopedSessions}
+            clients={clients}
+            archives={archives}
+            onSelectClientToFilter={handleFilterByClient}
+            onSelectArchiveToFilter={handleFilterByArchive}
+            onReopenArchive={handleReopenArchive}
+            onOpenCloseMonthModal={() => setIsCloseMonthModalOpen(true)}
+            onToggleStatus={handleTogglePaymentStatus}
           />
         ) : (
           /* Interactive Clinic Tycoon / Manager Game Mode */
           <ClinicGameView
-            sessions={sessions}
+            sessions={periodScopedSessions}
             clients={clients}
             currentUser={currentUser}
             onToggleStatus={handleTogglePaymentStatus}
@@ -541,7 +686,9 @@ export default function App() {
 
       {/* Footer */}
       <footer className="border-t border-slate-200 bg-white py-4 text-center text-xs text-slate-500">
-        <p>نظام إدارة مركز العلاج الطبيعي والتأهيل الحركي &bull; تم إدخال السجلات ومطابقة الصور بدقة</p>
+        <p>
+          نظام إدارة مركز العلاج الطبيعي والتأهيل الحركي &bull; متصل بقاعدة بيانات Firebase Firestore الموحدة
+        </p>
       </footer>
 
       {/* Modals */}
@@ -554,6 +701,13 @@ export default function App() {
         defaultClient={clientForNewSession}
       />
 
+      <CloseMonthModal
+        isOpen={isCloseMonthModalOpen}
+        onClose={() => setIsCloseMonthModalOpen(false)}
+        openSessions={openSessions}
+        onConfirmCloseMonth={handleConfirmCloseMonth}
+      />
+
       <DeleteConfirmModal
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}
@@ -561,10 +715,16 @@ export default function App() {
         session={sessionToDelete}
       />
 
+      <ResetConfirmModal
+        isOpen={isResetModalOpen}
+        onClose={() => setIsResetModalOpen(false)}
+        onConfirm={handleConfirmResetDatabase}
+      />
+
       <ExportModal
         isOpen={isExportModalOpen}
         onClose={() => setIsExportModalOpen(false)}
-        sessions={sessions}
+        sessions={periodScopedSessions}
       />
 
       <InstallPromptModal

@@ -1,189 +1,210 @@
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
-    // 1. Global Safety Net (Default Deny)
-    match /{document=**} {
-      allow read, write: if false;
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: sessions
+    // Document ID: {sessionId}
+    // Fields:
+    //   - id: string (required, 1..128 chars)
+    //   - clientName: string (required, 1..200 chars)
+    //   - clientPhone: string (required, 1..50 chars)
+    //   - condition: string (required, 1..300 chars)
+    //   - notes: string (optional, 0..1000 chars)
+    //   - attendanceDate: string (required, 1..20 chars)
+    //   - attendanceTime: string (required, 1..20 chars)
+    //   - basePrice: number (required, 0..1000000)
+    //   - totalPrice: number (required, 0..1000000)
+    //   - priceDetails: string (required, 1..200 chars)
+    //   - paymentStatus: string (required, in ['pending', 'paid', 'cancelled'])
+    //   - paymentMethod: string (required, in ['cash', 'bank_transfer', 'credit_card'])
+    //   - createdAt: string (required, 1..64 chars)
+    //   - archiveId: string (optional, 0..128 chars)
+    //   - archiveLabel: string (optional, 0..200 chars)
+    //
+    // Collection: clients
+    // Document ID: {clientId}
+    // Fields:
+    //   - id: string (required, 1..128 chars)
+    //   - name: string (required, 1..200 chars)
+    //   - phone: string (required, 1..50 chars)
+    //   - primaryCondition: string (required, 1..300 chars)
+    //   - notes: string (optional, 0..1000 chars)
+    //   - firstVisitDate: string (required, 1..20 chars)
+    //   - lastVisitDate: string (required, 1..20 chars)
+    //
+    // Collection: monthly_archives
+    // Document ID: {archiveId}
+    // Fields:
+    //   - id: string (required, 1..128 chars)
+    //   - title: string (required, 1..200 chars)
+    //   - closedAt: string (required, 1..64 chars)
+    //   - startDate: string (required, 1..20 chars)
+    //   - endDate: string (required, 1..20 chars)
+    //   - totalSessions: number (required, 0..100000)
+    //   - totalRevenue: number (required, 0..100000000)
+    //   - paidRevenue: number (required, 0..100000000)
+    //   - pendingRevenue: number (required, 0..100000000)
+    //   - paidCount: number (required, 0..100000)
+    //   - pendingCount: number (required, 0..100000)
+    //   - notes: string (optional, 0..1000 chars)
+    //
+    // Collection: sync_meta
+    // Document ID: {metaId}
+    // Fields:
+    //   - id: string (required, 1..128 chars)
+    //   - seeded: bool (required)
+    //   - updatedAt: string (required, 1..64 chars)
+    //   - totalSessions: number (optional, 0..100000)
+    //
+    // ===============================================================
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
     }
 
-    // Global Hardened Primitives
-    function isValidId(id) {
-      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
-    }
-
-    function incoming() {
-      return request.resource.data;
-    }
-
-    function existing() {
-      return resource.data;
-    }
-
-    function isClinicRequest() {
-      return request.time != null;
+    function isValidOptionalString(field, maxLen) {
+      return !(field in request.resource.data) ||
+        (request.resource.data[field] is string && request.resource.data[field].size() <= maxLen);
     }
 
     function isValidSession(data) {
-      return data.keys().hasAll([
-        'id',
-        'clientName',
-        'clientPhone',
-        'condition',
-        'attendanceDate',
-        'attendanceTime',
-        'basePrice',
-        'totalPrice',
-        'priceDetails',
-        'paymentStatus',
-        'paymentMethod',
-        'createdAt'
-      ]) &&
-      data.keys().hasOnly([
-        'id',
-        'clientName',
-        'clientPhone',
-        'condition',
-        'notes',
-        'attendanceDate',
-        'attendanceTime',
-        'basePrice',
-        'totalPrice',
-        'priceDetails',
-        'paymentStatus',
-        'paymentMethod',
-        'createdAt'
-      ]) &&
-      isValidId(data.id) &&
-      data.clientName is string && data.clientName.size() >= 1 && data.clientName.size() <= 200 &&
-      data.clientPhone is string && data.clientPhone.size() >= 1 && data.clientPhone.size() <= 50 &&
-      data.condition is string && data.condition.size() >= 1 && data.condition.size() <= 300 &&
-      (!('notes' in data) || (data.notes is string && data.notes.size() <= 1000)) &&
-      data.attendanceDate is string && data.attendanceDate.size() >= 1 && data.attendanceDate.size() <= 20 &&
-      data.attendanceTime is string && data.attendanceTime.size() >= 1 && data.attendanceTime.size() <= 20 &&
-      data.basePrice is number && data.basePrice >= 0 && data.basePrice <= 1000000 &&
-      data.totalPrice is number && data.totalPrice >= 0 && data.totalPrice <= 1000000 &&
-      data.priceDetails is string && data.priceDetails.size() <= 200 &&
-      data.paymentStatus is string && data.paymentStatus in ['pending', 'paid', 'cancelled'] &&
-      data.paymentMethod is string && data.paymentMethod in ['cash', 'bank_transfer', 'credit_card'] &&
-      data.createdAt is string && data.createdAt.size() >= 1 && data.createdAt.size() <= 64;
+      return hasRequiredFields([
+          'id', 'clientName', 'clientPhone', 'condition',
+          'attendanceDate', 'attendanceTime', 'basePrice', 'totalPrice',
+          'priceDetails', 'paymentStatus', 'paymentMethod', 'createdAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'clientName', 'clientPhone', 'condition', 'notes',
+          'attendanceDate', 'attendanceTime', 'basePrice', 'totalPrice',
+          'priceDetails', 'paymentStatus', 'paymentMethod', 'createdAt',
+          'archiveId', 'archiveLabel'
+        ]) &&
+        data.id is string && data.id.size() >= 1 && data.id.size() <= 128 &&
+        data.clientName is string && data.clientName.size() >= 1 && data.clientName.size() <= 200 &&
+        data.clientPhone is string && data.clientPhone.size() >= 1 && data.clientPhone.size() <= 50 &&
+        data.condition is string && data.condition.size() >= 1 && data.condition.size() <= 300 &&
+        isValidOptionalString('notes', 1000) &&
+        isValidOptionalString('archiveId', 128) &&
+        isValidOptionalString('archiveLabel', 200) &&
+        data.attendanceDate is string && data.attendanceDate.size() >= 1 && data.attendanceDate.size() <= 20 &&
+        data.attendanceTime is string && data.attendanceTime.size() >= 1 && data.attendanceTime.size() <= 20 &&
+        data.basePrice is number && data.basePrice >= 0 && data.basePrice <= 1000000 &&
+        data.totalPrice is number && data.totalPrice >= 0 && data.totalPrice <= 1000000 &&
+        data.priceDetails is string && data.priceDetails.size() >= 1 && data.priceDetails.size() <= 200 &&
+        data.paymentStatus in ['pending', 'paid', 'cancelled'] &&
+        data.paymentMethod in ['cash', 'bank_transfer', 'credit_card'] &&
+        data.createdAt is string && data.createdAt.size() >= 1 && data.createdAt.size() <= 64;
     }
 
     function isValidClient(data) {
-      return data.keys().hasAll([
-        'id',
-        'name',
-        'phone',
-        'primaryCondition',
-        'firstVisitDate',
-        'lastVisitDate'
-      ]) &&
-      data.keys().hasOnly([
-        'id',
-        'name',
-        'phone',
-        'primaryCondition',
-        'notes',
-        'firstVisitDate',
-        'lastVisitDate'
-      ]) &&
-      isValidId(data.id) &&
-      data.name is string && data.name.size() >= 1 && data.name.size() <= 200 &&
-      data.phone is string && data.phone.size() >= 1 && data.phone.size() <= 50 &&
-      data.primaryCondition is string && data.primaryCondition.size() >= 1 && data.primaryCondition.size() <= 300 &&
-      (!('notes' in data) || (data.notes is string && data.notes.size() <= 1000)) &&
-      data.firstVisitDate is string && data.firstVisitDate.size() >= 1 && data.firstVisitDate.size() <= 20 &&
-      data.lastVisitDate is string && data.lastVisitDate.size() >= 1 && data.lastVisitDate.size() <= 20;
+      return hasRequiredFields([
+          'id', 'name', 'phone', 'primaryCondition', 'firstVisitDate', 'lastVisitDate'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'name', 'phone', 'primaryCondition', 'notes', 'firstVisitDate', 'lastVisitDate'
+        ]) &&
+        data.id is string && data.id.size() >= 1 && data.id.size() <= 128 &&
+        data.name is string && data.name.size() >= 1 && data.name.size() <= 200 &&
+        data.phone is string && data.phone.size() >= 1 && data.phone.size() <= 50 &&
+        data.primaryCondition is string && data.primaryCondition.size() >= 1 && data.primaryCondition.size() <= 300 &&
+        isValidOptionalString('notes', 1000) &&
+        data.firstVisitDate is string && data.firstVisitDate.size() >= 1 && data.firstVisitDate.size() <= 20 &&
+        data.lastVisitDate is string && data.lastVisitDate.size() >= 1 && data.lastVisitDate.size() <= 20;
+    }
+
+    function isValidMonthlyArchive(data) {
+      return hasRequiredFields([
+          'id', 'title', 'closedAt', 'startDate', 'endDate',
+          'totalSessions', 'totalRevenue', 'paidRevenue', 'pendingRevenue',
+          'paidCount', 'pendingCount'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'title', 'closedAt', 'startDate', 'endDate',
+          'totalSessions', 'totalRevenue', 'paidRevenue', 'pendingRevenue',
+          'paidCount', 'pendingCount', 'notes'
+        ]) &&
+        data.id is string && data.id.size() >= 1 && data.id.size() <= 128 &&
+        data.title is string && data.title.size() >= 1 && data.title.size() <= 200 &&
+        data.closedAt is string && data.closedAt.size() >= 1 && data.closedAt.size() <= 64 &&
+        data.startDate is string && data.startDate.size() >= 1 && data.startDate.size() <= 20 &&
+        data.endDate is string && data.endDate.size() >= 1 && data.endDate.size() <= 20 &&
+        data.totalSessions is number && data.totalSessions >= 0 && data.totalSessions <= 100000 &&
+        data.totalRevenue is number && data.totalRevenue >= 0 && data.totalRevenue <= 100000000 &&
+        data.paidRevenue is number && data.paidRevenue >= 0 && data.paidRevenue <= 100000000 &&
+        data.pendingRevenue is number && data.pendingRevenue >= 0 && data.pendingRevenue <= 100000000 &&
+        data.paidCount is number && data.paidCount >= 0 && data.paidCount <= 100000 &&
+        data.pendingCount is number && data.pendingCount >= 0 && data.pendingCount <= 100000 &&
+        isValidOptionalString('notes', 1000);
     }
 
     function isValidSyncMeta(data) {
-      return data.keys().hasAll(['id', 'seeded', 'updatedAt', 'totalSessions']) &&
-      data.keys().hasOnly(['id', 'seeded', 'updatedAt', 'totalSessions']) &&
-      isValidId(data.id) &&
-      data.seeded is bool &&
-      data.updatedAt is string && data.updatedAt.size() >= 1 && data.updatedAt.size() <= 64 &&
-      data.totalSessions is number && data.totalSessions >= 0 && data.totalSessions <= 100000;
+      return hasRequiredFields(['id', 'seeded', 'updatedAt']) &&
+        data.keys().hasOnly(['id', 'seeded', 'updatedAt', 'totalSessions']) &&
+        data.id is string && data.id.size() >= 1 && data.id.size() <= 128 &&
+        data.seeded is bool &&
+        data.updatedAt is string && data.updatedAt.size() >= 1 && data.updatedAt.size() <= 64 &&
+        (!('totalSessions' in data) || (data.totalSessions is number && data.totalSessions >= 0 && data.totalSessions <= 100000));
     }
 
-    // Sessions Collection Rules
     match /sessions/{sessionId} {
-      allow get: if isClinicRequest() && isValidId(sessionId);
-      allow list: if isClinicRequest();
-      allow create: if isClinicRequest() &&
-        isValidId(sessionId) &&
-        isValidSession(incoming()) &&
-        incoming().id == sessionId;
-      allow update: if isClinicRequest() &&
-        isValidId(sessionId) &&
-        isValidSession(incoming()) &&
-        incoming().id == existing().id &&
-        incoming().createdAt == existing().createdAt && (
-          // Action 1: Toggle Payment Status
-          incoming().diff(existing()).affectedKeys().hasOnly(['paymentStatus']) ||
-          // Action 2: Edit Session Details
-          incoming().diff(existing()).affectedKeys().hasOnly([
-            'clientName',
-            'clientPhone',
-            'condition',
-            'notes',
-            'attendanceDate',
-            'attendanceTime',
-            'basePrice',
-            'totalPrice',
-            'priceDetails',
-            'paymentStatus',
-            'paymentMethod'
+      allow get, list: if true;
+      allow create: if isValidSession(request.resource.data) && request.resource.data.id == sessionId;
+      allow update: if isValidSession(request.resource.data) &&
+        request.resource.data.id == resource.data.id &&
+        request.resource.data.createdAt == resource.data.createdAt &&
+        (
+          // Action 1: Fast paymentStatus toggle
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['paymentStatus']) ||
+          // Action 2: Archive / Unarchive stamp during monthly closing or reopening
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['archiveId', 'archiveLabel']) ||
+          // Action 3: Full session edit from SessionModal or reset
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'clientName', 'clientPhone', 'condition', 'notes',
+            'attendanceDate', 'attendanceTime', 'basePrice', 'totalPrice',
+            'priceDetails', 'paymentStatus', 'paymentMethod', 'archiveId', 'archiveLabel'
           ])
         );
-      allow delete: if isClinicRequest() && isValidId(sessionId);
+      allow delete: if true;
     }
 
-    // Clients Collection Rules
     match /clients/{clientId} {
-      allow get: if isClinicRequest() && isValidId(clientId);
-      allow list: if isClinicRequest();
-      allow create: if isClinicRequest() &&
-        isValidId(clientId) &&
-        isValidClient(incoming()) &&
-        incoming().id == clientId;
-      allow update: if isClinicRequest() &&
-        isValidId(clientId) &&
-        isValidClient(incoming()) &&
-        incoming().id == existing().id &&
-        incoming().diff(existing()).affectedKeys().hasOnly([
-          'name',
-          'phone',
-          'primaryCondition',
-          'notes',
-          'firstVisitDate',
-          'lastVisitDate'
+      allow get, list: if true;
+      allow create: if isValidClient(request.resource.data) && request.resource.data.id == clientId;
+      allow update: if isValidClient(request.resource.data) &&
+        request.resource.data.id == resource.data.id &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'name', 'phone', 'primaryCondition', 'notes', 'firstVisitDate', 'lastVisitDate'
         ]);
-      allow delete: if isClinicRequest() && isValidId(clientId);
+      allow delete: if true;
     }
 
-    // Sync Metadata Collection Rules
+    match /monthly_archives/{archiveId} {
+      allow get, list: if true;
+      allow create: if isValidMonthlyArchive(request.resource.data) && request.resource.data.id == archiveId;
+      allow update: if isValidMonthlyArchive(request.resource.data) &&
+        request.resource.data.id == resource.data.id &&
+        request.resource.data.closedAt == resource.data.closedAt &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'title', 'startDate', 'endDate', 'totalSessions',
+          'totalRevenue', 'paidRevenue', 'pendingRevenue',
+          'paidCount', 'pendingCount', 'notes'
+        ]);
+      allow delete: if true;
+    }
+
     match /sync_meta/{metaId} {
-      allow get: if isClinicRequest() && isValidId(metaId);
-      allow list: if isClinicRequest();
-      allow create: if isClinicRequest() &&
-        isValidId(metaId) &&
-        isValidSyncMeta(incoming()) &&
-        incoming().id == metaId;
-      allow update: if isClinicRequest() &&
-        isValidId(metaId) &&
-        isValidSyncMeta(incoming()) &&
-        incoming().id == existing().id &&
-        incoming().diff(existing()).affectedKeys().hasOnly([
-          'seeded',
-          'updatedAt',
-          'totalSessions'
-        ]);
-      allow delete: if isClinicRequest() && isValidId(metaId);
+      allow get, list: if true;
+      allow create: if isValidSyncMeta(request.resource.data) && request.resource.data.id == metaId;
+      allow update: if isValidSyncMeta(request.resource.data) &&
+        request.resource.data.id == resource.data.id &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seeded', 'updatedAt', 'totalSessions']);
     }
 
-    // Connection Test Endpoint
-    match /test/{testId} {
-      allow get: if isClinicRequest() && isValidId(testId);
+    match /test/connection {
+      allow get: if true;
     }
   }
 }
