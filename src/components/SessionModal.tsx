@@ -200,19 +200,17 @@ export const SessionModal: React.FC<SessionModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden my-8">
+    <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-2.5 sm:p-4">
+      <div className="bg-white rounded-2xl max-w-lg w-full max-h-[92dvh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden">
         {/* Header */}
-        <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+        <div className="px-4 sm:px-5 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between shrink-0">
           <div>
-            <h3 className="font-bold text-slate-900 text-lg">
+            <h3 className="font-bold text-slate-900 text-base sm:text-lg">
               {initialData ? 'تعديل بيانات الجلسة' : 'إضافة جلسة جديدة'}
             </h3>
-            <p className="text-xs text-slate-500 mt-0.5">
-              إدخال وتحديث البيانات مباشرة في قاعدة البيانات السحابية مع منع التكرار
-            </p>
           </div>
           <button
+            type="button"
             onClick={onClose}
             className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-lg transition-colors cursor-pointer"
           >
@@ -221,13 +219,14 @@ export const SessionModal: React.FC<SessionModalProps> = ({
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          {errorMessage && (
-            <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-start gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-              <span>{errorMessage}</span>
-            </div>
-          )}
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+          <div className="p-4 sm:p-5 space-y-3.5 overflow-y-auto flex-1">
+            {errorMessage && (
+              <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>{errorMessage}</span>
+              </div>
+            )}
 
           {/* Client Name & Quick select */}
           <div>
@@ -439,30 +438,32 @@ export const SessionModal: React.FC<SessionModalProps> = ({
             </div>
           </div>
 
-          {/* Actions */}
-          <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-2">
+          </div>
+
+          {/* Pinned Footer Actions */}
+          <div className="px-4 sm:px-5 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2 shrink-0">
             <button
               type="button"
               onClick={onClose}
               disabled={isSubmitting}
-              className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+              className="px-4 py-2 text-xs font-semibold text-slate-600 bg-white border border-slate-200 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
             >
               إلغاء
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-5 py-2 text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 rounded-lg transition-all shadow-sm shadow-teal-600/30 cursor-pointer disabled:opacity-50 inline-flex items-center gap-2"
+              className="flex-1 sm:flex-initial justify-center px-5 py-2 text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 rounded-lg transition-all shadow-sm shadow-teal-600/30 cursor-pointer disabled:opacity-50 inline-flex items-center gap-2"
             >
               {isSubmitting ? (
                 <>
                   <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  <span>جارٍ الحفظ في قاعدة البيانات...</span>
+                  <span>جارٍ الحفظ...</span>
                 </>
               ) : initialData ? (
-                'حفظ التعديلات في قاعدة البيانات'
+                'حفظ التعديلات'
               ) : (
-                'إضافة إلى قاعدة البيانات مباشرة'
+                'حفظ وإضافة الجلسة'
               )}
             </button>
           </div>

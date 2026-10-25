@@ -6,7 +6,6 @@ import {
   CheckCircle2,
   Clock,
   Wallet,
-  Sparkles,
   AlertCircle,
 } from 'lucide-react';
 import { SessionRecord } from '../types';
@@ -62,7 +61,6 @@ export const CloseMonthModal: React.FC<CloseMonthModalProps> = ({
     const startDate = dates[0] || new Date().toISOString().slice(0, 10);
     const endDate = dates[dates.length - 1] || new Date().toISOString().slice(0, 10);
 
-    // Suggest default archive title based on latest date in open sessions
     const [year, month] = endDate.split('-');
     const monthName = ARABIC_MONTHS[month] || month;
     const suggestedTitle =
@@ -115,155 +113,141 @@ export const CloseMonthModal: React.FC<CloseMonthModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-      <div className="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-lg w-full overflow-hidden">
-        {/* Header */}
-        <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-teal-500/20 border border-teal-400/30 flex items-center justify-center text-teal-300">
-              <Archive className="w-5 h-5" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-slate-900/60 backdrop-blur-xs">
+      <div className="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-md w-full max-h-[92dvh] flex flex-col overflow-hidden">
+        {/* Compact Header */}
+        <div className="px-4 py-3 bg-slate-900 text-white flex items-center justify-between gap-2 shrink-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-8 h-8 rounded-lg bg-teal-500/20 border border-teal-400/30 flex items-center justify-center text-teal-300 shrink-0">
+              <Archive className="w-4 h-4" />
             </div>
-            <div>
-              <h3 className="text-base font-bold">تقفيل حساب الشهر وأرشفته وبداية شهر جديد</h3>
-              <p className="text-xs text-slate-300">
-                حفظ إحصائيات وجلسات الفترة الحالية في الأرشيف السحابي وتصفير عداد الشهر الجديد
-              </p>
+            <div className="min-w-0">
+              <h3 className="text-sm sm:text-base font-bold truncate">
+                تقفيل حساب الشهر وبداية شهر جديد
+              </h3>
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-white p-1 rounded-lg transition-colors cursor-pointer"
+            className="text-slate-400 hover:text-white p-1 rounded-lg transition-colors cursor-pointer shrink-0"
+            aria-label="إغلاق"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          {errorMsg && (
-            <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-              <span>{errorMsg}</span>
+        {/* Form with scrollable body and pinned footer */}
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+          <div className="p-3.5 sm:p-4 space-y-3 overflow-y-auto flex-1">
+            {errorMsg && (
+              <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                <span>{errorMsg}</span>
+              </div>
+            )}
+
+            {/* Compact Current Period Summary Box */}
+            <div className="bg-slate-50 rounded-xl border border-slate-200 p-2.5 sm:p-3 space-y-2">
+              <div className="flex items-center justify-between gap-2 text-[11px] text-slate-600 border-b border-slate-200/80 pb-1.5">
+                <span className="font-bold text-slate-800">ملخص الحساب المراد تقفيله:</span>
+                <span className="font-mono tabular-nums text-slate-500" dir="ltr">
+                  {summary.startDate} &rarr; {summary.endDate}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div className="bg-white p-2 rounded-lg border border-slate-200/80">
+                  <div className="flex items-center gap-1 text-[11px] text-slate-500 mb-0.5">
+                    <CalendarCheck className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+                    <span className="truncate">الجلسات المفتوحة</span>
+                  </div>
+                  <div className="text-sm sm:text-base font-extrabold text-slate-900 font-mono tabular-nums">
+                    {summary.totalSessions} <span className="text-[11px] font-normal">جلسة</span>
+                  </div>
+                </div>
+
+                <div className="bg-white p-2 rounded-lg border border-slate-200/80">
+                  <div className="flex items-center gap-1 text-[11px] text-slate-500 mb-0.5">
+                    <Wallet className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                    <span className="truncate">إجمالي حساب الفترة</span>
+                  </div>
+                  <div className="text-sm sm:text-base font-extrabold text-slate-900 font-mono tabular-nums">
+                    {summary.totalRevenue.toLocaleString('en-US')}{' '}
+                    <span className="text-[11px] font-normal">ج.م</span>
+                  </div>
+                </div>
+
+                <div className="bg-emerald-50/60 p-2 rounded-lg border border-emerald-200/80">
+                  <div className="flex items-center gap-1 text-[11px] text-emerald-800 mb-0.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span className="truncate">المحصل ({summary.paidCount})</span>
+                  </div>
+                  <div className="text-xs sm:text-sm font-bold text-emerald-700 font-mono tabular-nums">
+                    {summary.paidRevenue.toLocaleString('en-US')} ج.م
+                  </div>
+                </div>
+
+                <div className="bg-amber-50/60 p-2 rounded-lg border border-amber-200/80">
+                  <div className="flex items-center gap-1 text-[11px] text-amber-800 mb-0.5">
+                    <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                    <span className="truncate">المعلق ({summary.pendingCount})</span>
+                  </div>
+                  <div className="text-xs sm:text-sm font-bold text-amber-700 font-mono tabular-nums">
+                    {summary.pendingRevenue.toLocaleString('en-US')} ج.م
+                  </div>
+                </div>
+              </div>
             </div>
-          )}
 
-          {/* Current Period Summary Box */}
-          <div className="bg-slate-50 rounded-xl border border-slate-200 p-4 space-y-3">
-            <div className="flex items-center justify-between text-xs text-slate-600 border-b border-slate-200/80 pb-2.5">
-              <span className="font-bold text-slate-800">ملخص الحساب الجاري المراد تقفيله:</span>
-              <span className="font-mono tabular-nums text-slate-500">
-                {summary.startDate} &larr; {summary.endDate}
-              </span>
+            {/* Archive Name Input */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                اسم أرشيف الشهر:
+              </label>
+              <input
+                type="text"
+                required
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="مثال: تقفيل حساب شهر أكتوبر 2026"
+                className="w-full px-3 py-2 text-xs sm:text-sm bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 text-slate-900"
+              />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="bg-white p-3 rounded-lg border border-slate-200/80">
-                <div className="flex items-center gap-1.5 text-xs text-slate-500 mb-1">
-                  <CalendarCheck className="w-3.5 h-3.5 text-teal-600" />
-                  <span>إجمالي الجلسات المفتوحة</span>
-                </div>
-                <div className="text-lg font-extrabold text-slate-900 font-mono tabular-nums">
-                  {summary.totalSessions} <span className="text-xs font-normal">جلسة</span>
-                </div>
-              </div>
-
-              <div className="bg-white p-3 rounded-lg border border-slate-200/80">
-                <div className="flex items-center gap-1.5 text-xs text-slate-500 mb-1">
-                  <Wallet className="w-3.5 h-3.5 text-blue-600" />
-                  <span>إجمالي حساب الفترة</span>
-                </div>
-                <div className="text-lg font-extrabold text-slate-900 font-mono tabular-nums">
-                  {summary.totalRevenue.toLocaleString('en-US')}{' '}
-                  <span className="text-xs font-normal">ج.م</span>
-                </div>
-              </div>
-
-              <div className="bg-emerald-50/60 p-3 rounded-lg border border-emerald-200/80">
-                <div className="flex items-center gap-1.5 text-xs text-emerald-800 mb-1">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>المحصل ({summary.paidCount} جلسة)</span>
-                </div>
-                <div className="text-base font-bold text-emerald-700 font-mono tabular-nums">
-                  {summary.paidRevenue.toLocaleString('en-US')} ج.م
-                </div>
-              </div>
-
-              <div className="bg-amber-50/60 p-3 rounded-lg border border-amber-200/80">
-                <div className="flex items-center gap-1.5 text-xs text-amber-800 mb-1">
-                  <Clock className="w-3.5 h-3.5 text-amber-600" />
-                  <span>المعلق ({summary.pendingCount} جلسة)</span>
-                </div>
-                <div className="text-base font-bold text-amber-700 font-mono tabular-nums">
-                  {summary.pendingRevenue.toLocaleString('en-US')} ج.م
-                </div>
-              </div>
+            {/* Optional Notes */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                ملاحظات التقفيل (اختياري):
+              </label>
+              <input
+                type="text"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="أي ملاحظات حول تسوية الحسابات عند التقفيل..."
+                className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 text-slate-900"
+              />
             </div>
           </div>
 
-          {/* Archive Name Input */}
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1.5">
-              اسم أرشيف الشهر (يظهر في قائمة الفلتر للرجوع إليه في أي وقت):
-            </label>
-            <input
-              type="text"
-              required
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="مثال: تقفيل حساب شهر أكتوبر 2026"
-              className="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 text-slate-900"
-            />
-          </div>
-
-          {/* Optional Notes */}
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1.5">
-              ملاحظات التقفيل المالي (اختياري):
-            </label>
-            <textarea
-              rows={2}
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="أي ملاحظات حول تسوية الحسابات أو المتبقيات عند التقفيل..."
-              className="w-full px-3.5 py-2 text-xs bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 text-slate-900"
-            />
-          </div>
-
-          {/* What happens next explanation */}
-          <div className="p-3.5 rounded-xl bg-teal-50/80 border border-teal-200/80 text-xs text-teal-950 space-y-1">
-            <div className="font-bold flex items-center gap-1.5 text-teal-900">
-              <Sparkles className="w-4 h-4 text-teal-600 shrink-0" />
-              <span>ماذا سيحدث بعد الضغط على زر التقفيل؟</span>
-            </div>
-            <p className="text-teal-800 leading-relaxed">
-              1. سيتم حفظ وأرشفة جميع الجلسات الحالية ({summary.totalSessions} جلسة) تحت اسم{' '}
-              <strong>«{title || summary.suggestedTitle}»</strong> في قاعدة البيانات السحابية.
-              <br />
-              2. ستبدأ <strong>لوحة الإحصائيات ومتابعة الشهر الجديد</strong> من الصفر لمتابعة جلسات وإيرادات الشهر الجديد فقط.
-              <br />
-              3. يمكنك <strong>الرجوع إلى هذا الشهر أو أي شهر سابق في أي وقت</strong> من قائمة الفلتر.
-            </p>
-          </div>
-
-          {/* Actions */}
-          <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100">
+          {/* Pinned Footer Actions - Always visible on mobile */}
+          <div className="px-3.5 sm:px-4 py-2.5 sm:py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2 shrink-0">
             <button
               type="button"
               onClick={onClose}
               disabled={isSubmitting}
-              className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer whitespace-nowrap"
+              className="px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-100 transition-colors cursor-pointer whitespace-nowrap"
             >
               إلغاء
             </button>
             <button
               type="submit"
               disabled={isSubmitting || openSessions.length === 0}
-              className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 disabled:opacity-50 shadow-sm transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap"
+              className="flex-1 sm:flex-initial justify-center px-4 py-2 rounded-xl text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 disabled:opacity-50 shadow-sm transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
             >
-              <Archive className="w-4 h-4" />
+              <Archive className="w-4 h-4 shrink-0" />
               <span>
-                {isSubmitting
-                  ? 'جارٍ أرشفة الشهر وبدء شهر جديد...'
-                  : 'تأكيد تقفيل الشهر وبداية شهر جديد'}
+                {isSubmitting ? 'جارٍ الحفظ والتقفيل...' : 'حفظ وتقفيل الشهر'}
               </span>
             </button>
           </div>
